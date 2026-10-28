@@ -114,12 +114,18 @@ label.lbl .opt{font-weight:400; color:var(--faint)}
 .film{position:relative; background:var(--surface); border:1px solid var(--line); border-radius:var(--r); padding:15px 16px; margin-top:11px; box-shadow:var(--shadow);}
 .film.editable{cursor:pointer}
 .film.done{background:var(--jade-soft); border-color:transparent}
+.filmtop{display:flex; gap:13px}
+.poster{width:58px; height:87px; border-radius:9px; overflow:hidden; flex:none; background:var(--surface-2); display:grid; place-items:center}
+.poster img{width:100%; height:100%; object-fit:cover; display:block}
+.poster .noimg{font-size:24px; opacity:.45}
+.filmbody{flex:1; min-width:0}
 .film .ft{font-family:"Fraunces",serif; font-size:18px; font-weight:600; letter-spacing:-.01em; line-height:1.2}
+.film .fyear{color:var(--faint); font-weight:400; font-size:14px}
 .film .fn{color:var(--muted); font-size:14px; margin-top:4px}
 .film .ftags{display:flex; gap:6px; flex-wrap:wrap; margin-top:9px}
 .ftag{font-size:11.5px; font-weight:600; color:var(--muted); background:var(--surface-2); padding:3px 9px; border-radius:999px}
-.film .by{font-size:12.5px; color:var(--faint); margin-top:9px}
-.seenline{display:flex; align-items:center; gap:8px; margin-top:11px; padding-top:11px; border-top:1px solid var(--line)}
+.film .by{font-size:12.5px; color:var(--faint); margin-top:11px}
+.seenline{display:flex; align-items:center; gap:8px; margin-top:12px; padding-top:12px; border-top:1px solid var(--line)}
 .film.done .seenline{border-top-color:color-mix(in srgb,var(--jade) 25%, transparent)}
 .seencount{font-size:12.5px; color:var(--muted); font-weight:600; white-space:nowrap}
 .seentoggle{border:1.5px solid var(--line); background:transparent; color:var(--text); border-radius:999px; padding:7px 14px 7px 12px; font-size:13.5px; font-weight:700; display:inline-flex; align-items:center; gap:6px; margin-left:auto;}
@@ -183,6 +189,19 @@ code{background:var(--surface-2); padding:1px 6px; border-radius:6px; font-size:
 .sro{font-size:15px; color:var(--line); line-height:1}
 .sro.full{color:#e0a21c; -webkit-text-fill-color:#e0a21c}
 .sro.half{background:linear-gradient(90deg,#e0a21c 50%,var(--line) 50%); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent}
+.tmdbres{display:flex; flex-direction:column; gap:2px; margin-top:8px}
+.tmdbloading{font-size:13px; color:var(--muted); padding:8px 2px}
+.tmdbitem{display:flex; align-items:center; gap:10px; width:100%; text-align:left; background:var(--surface-2); border:none; border-radius:10px; padding:7px 10px; color:var(--text); cursor:pointer}
+.tmdbitem:active{filter:brightness(.96)}
+.tmdbth{width:34px; height:51px; border-radius:5px; overflow:hidden; flex:none; background:var(--line); display:grid; place-items:center; font-size:15px}
+.tmdbth img{width:100%; height:100%; object-fit:cover; display:block}
+.tmdbmeta{display:flex; flex-direction:column; min-width:0}
+.tmdbt{font-weight:600; font-size:14.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.tmdby{font-size:12.5px; color:var(--muted)}
+.pickprev{display:flex; align-items:center; gap:11px; margin-top:10px; background:var(--surface-2); border-radius:10px; padding:8px 10px}
+.pickprev img{width:34px; height:51px; border-radius:5px; object-fit:cover; flex:none}
+.pickprev span{flex:1; min-width:0; font-size:13.5px; font-weight:600}
+.tmdbcredit{color:var(--faint); font-size:11.5px; text-align:center; margin:26px 2px 6px; line-height:1.4}
 </style>
 </head>
 <body>
@@ -193,15 +212,18 @@ code{background:var(--surface-2); padding:1px 6px; border-radius:6px; font-size:
 <script>
 "use strict";
 /* ============================================================
-   CONFIG de Supabase  (clave pública: segura en el navegador).
-   NUNCA pongas aquí la clave secreta / service_role.
+   CONFIG  (todas estas claves son "públicas": seguras en el navegador.
+   NUNCA pongas aquí la clave secreta / service_role de Supabase.)
    ============================================================ */
 var SUPABASE_URL      = "https://haviyreegwsmjouzjbqi.supabase.co";
 var SUPABASE_ANON_KEY = "sb_publishable_C_8u0SolgkKU9fEQ1adplA_wqolI97V";
 
-/* --- Insignia de fundador (atada a una sola cuenta) --- */
+/* Insignia de fundador (atada a una sola cuenta) */
 var FOUNDER_UID   = "7a4af0da-a549-4cbd-9057-0fac8c470bb9";
 var FOUNDER_TITLE = "Founder & CEO";
+
+/* Clave de TMDB (para los pósters). Es de solo lectura. */
+var TMDB_KEY = "e0d764b988eef37826ef8926a9174b05";
 /* ============================================================ */
 
 var ALPHA="ABCDEFGHJKMNPQRSTUVWXYZ23456789";
@@ -211,6 +233,7 @@ var sb=null, channel=null, cloudReady=false;
 var me={id:null,name:""};
 var S={view:"loading",authMode:"in",_email:"",listId:null,filter:"all",meta:null,members:[],movies:[],seen:[],loading:true,_pendingHash:null,homeLists:null,homeLoading:false};
 var modal=null, editingId=null, _memberTried=false, _rf=null, _rateVal=0, _rateMovie=null;
+var _pickPoster=null, _pickYear=null, _tmdbResults=[], _tmdbTimer=null;
 
 /* ---- utils ---- */
 function $(id){return document.getElementById(id);}
@@ -242,6 +265,11 @@ function starsInner(r){
 function starsDisplay(r){
   var h='<span class="starsro">'; for(var i=1;i<=5;i++){ var full=r>=i, half=!full&&r>=i-0.5; h+='<span class="sro '+(full?"full":half?"half":"")+'">★</span>'; } return h+'</span>';
 }
+function posterUrl(p,size){ return p?("https://image.tmdb.org/t/p/"+(size||"w154")+p):null; }
+function posterBox(p,cls){
+  var u=posterUrl(p,"w185");
+  return '<div class="poster'+(cls?(" "+cls):"")+'">'+(u?'<img loading="lazy" src="'+esc(u)+'" alt="">':'<span class="noimg">🎬</span>')+'</div>';
+}
 function toast(t){var el=$("toast");el.textContent=t;el.classList.add("show");clearTimeout(el._t);el._t=setTimeout(function(){el.classList.remove("show");},2600);}
 function sheetErr(msg){var s=modal&&modal.querySelector(".sheet");if(!s)return;var e=s.querySelector(".err");if(!e){e=document.createElement("div");e.className="err";s.appendChild(e);}e.textContent=msg;}
 function loginErr(msg){var e=$("loginerr");if(e)e.textContent=msg||"";}
@@ -249,6 +277,7 @@ function errText(e){ if(!e)return "Error desconocido.";var m=e.message||String(e
   if(/Failed to fetch|NetworkError|fetch/i.test(m))return "Sin conexión con la base de datos. Revisa la URL y la clave de Supabase.";
   if(e.code==="23505")return "Ya existía (duplicado).";
   if(/row-level security|violates row|permission|not authorized/i.test(m))return "La base de datos rechazó la operación. Revisa que ejecutaste el SQL (políticas RLS).";
+  if(/column .* does not exist|poster|year|rating/i.test(m))return "Falta una columna en la base de datos. Ejecuta el SQL que te pasé (poster/year/rating).";
   return "No se pudo guardar: "+m; }
 function authErrText(e){ var m=(e&&e.message)||"";
   if(/Invalid login credentials/i.test(m))return "Correo o contraseña incorrectos.";
@@ -258,6 +287,38 @@ function authErrText(e){ var m=(e&&e.message)||"";
   if(/rate limit|too many/i.test(m))return "Demasiados intentos. Espera un momento.";
   if(/Failed to fetch|NetworkError/i.test(m))return "Sin conexión. Revisa tu internet y la clave de Supabase.";
   return m||"No se pudo. Inténtalo de nuevo."; }
+
+/* ---- TMDB (pósters) ---- */
+async function tmdbSearch(q){
+  var box=$("tmdbres"); if(!box)return;
+  q=(q||"").trim();
+  if(q.length<2){ box.innerHTML=""; return; }
+  box.innerHTML='<div class="tmdbloading">buscando…</div>';
+  try{
+    var url="https://api.themoviedb.org/3/search/movie?api_key="+encodeURIComponent(TMDB_KEY)+"&language=es-ES&include_adult=false&query="+encodeURIComponent(q);
+    var r=await fetch(url); var d=await r.json();
+    if($("tmdbres")!==box)return;
+    _tmdbResults=(d&&d.results?d.results:[]).slice(0,6);
+    if(!_tmdbResults.length){ box.innerHTML='<div class="tmdbloading">sin resultados · puedes añadirla a mano</div>'; return; }
+    box.innerHTML=_tmdbResults.map(function(m,i){
+      var yr=(m.release_date||"").slice(0,4);
+      var u=posterUrl(m.poster_path,"w92");
+      var th=u?'<img loading="lazy" src="'+esc(u)+'" alt="">':'🎬';
+      return '<button type="button" class="tmdbitem" data-act="pickTmdb" data-arg="'+i+'"><span class="tmdbth">'+th+'</span><span class="tmdbmeta"><span class="tmdbt">'+esc(m.title||m.original_title||"")+'</span><span class="tmdby">'+esc(yr)+'</span></span></button>';
+    }).join("");
+  }catch(e){ box.innerHTML='<div class="tmdbloading">no se pudo buscar · añádela a mano</div>'; }
+}
+function renderPickPreview(){
+  var box=$("tmdbpreview"); if(!box)return;
+  if(_pickPoster){
+    var u=posterUrl(_pickPoster,"w92");
+    box.innerHTML='<div class="pickprev">'+(u?'<img src="'+esc(u)+'" alt="">':'')+'<span>Póster'+(_pickYear?(" · "+esc(_pickYear)):"")+' seleccionado</span><button type="button" class="btn line sm" data-act="clearPick">Quitar</button></div>';
+  } else box.innerHTML="";
+}
+function bindTitleSearch(){
+  var e=$("mt"); if(!e)return;
+  e.oninput=function(){ clearTimeout(_tmdbTimer); _tmdbTimer=setTimeout(function(){ tmdbSearch(e.value); },350); };
+}
 
 /* ---- arranque + sesión ---- */
 async function boot(){
@@ -281,8 +342,6 @@ function afterAuth(session){
   S.view="home"; render(); loadMyLists();
 }
 
-/* "Tus listas" se leen de tu CUENTA (tabla members), no del dispositivo,
-   para que te sigan en cualquier móvil u ordenador. */
 async function loadMyLists(){
   if(!sb||!me.id)return;
   S.homeLoading=true; if(S.view==="home")render();
@@ -320,7 +379,7 @@ async function fetchState(id){
   if(!L){ S.meta="__missing__"; S.loading=false; renderMaybe(); return; }
   S.meta={name:L.name,isPublic:L.is_public,code:L.code,tags:L.tags||[],createdBy:L.created_by};
   S.members=(r[1].data||[]).map(function(m){return {id:m.user_id,name:m.name};});
-  S.movies=(r[2].data||[]).map(function(m){return {id:m.id,title:m.title,note:m.note,tags:m.tags||[],addedBy:m.added_by,addedByName:m.added_by_name,createdAt:m.created_at};});
+  S.movies=(r[2].data||[]).map(function(m){return {id:m.id,title:m.title,note:m.note,tags:m.tags||[],addedBy:m.added_by,addedByName:m.added_by_name,createdAt:m.created_at,poster:m.poster||null,year:m.year||null};});
   S.seen=(r[3].data||[]).map(function(s){return {id:s.movie_id+"__"+s.user_id,movieId:s.movie_id,userId:s.user_id,rating:(typeof s.rating==="number"?s.rating:null)};});
   S.loading=false; renderMaybe(); ensureMember();
 }
@@ -367,19 +426,19 @@ async function joinByCode(code){
   if(!res.data){ sheetErr("No existe ninguna lista con ese código."); return; }
   closeModal(); openList(res.data.id);
 }
-async function addMovie(title,note,tags){
+async function addMovie(title,note,tags,poster,year){
   title=(title||"").trim(); if(!title){ sheetErr("Falta el título."); return; }
   var mid=genId();
-  var res=await sb.from("movies").insert({id:mid,list_id:S.listId,title:title,note:(note||"").trim(),tags:tags||[],added_by:me.id,added_by_name:me.name});
+  var res=await sb.from("movies").insert({id:mid,list_id:S.listId,title:title,note:(note||"").trim(),tags:tags||[],added_by:me.id,added_by_name:me.name,poster:(poster||null),year:(year||null)});
   if(res.error){ sheetErr(errText(res.error)); return; }
-  S.movies.unshift({id:mid,title:title,note:(note||"").trim(),tags:tags||[],addedBy:me.id,addedByName:me.name,createdAt:new Date().toISOString()});
+  S.movies.unshift({id:mid,title:title,note:(note||"").trim(),tags:tags||[],addedBy:me.id,addedByName:me.name,createdAt:new Date().toISOString(),poster:(poster||null),year:(year||null)});
   closeModal(); renderMaybe();
 }
-async function updateMovie(id,title,note,tags){
+async function updateMovie(id,title,note,tags,poster,year){
   title=(title||"").trim(); if(!title){ sheetErr("Falta el título."); return; }
-  var res=await sb.from("movies").update({title:title,note:(note||"").trim(),tags:tags||[]}).eq("id",id);
+  var res=await sb.from("movies").update({title:title,note:(note||"").trim(),tags:tags||[],poster:(poster||null),year:(year||null)}).eq("id",id);
   if(res.error){ sheetErr(errText(res.error)); return; }
-  S.movies.forEach(function(m){ if(m.id===id){ m.title=title; m.note=(note||"").trim(); m.tags=tags||[]; } });
+  S.movies.forEach(function(m){ if(m.id===id){ m.title=title; m.note=(note||"").trim(); m.tags=tags||[]; m.poster=(poster||null); m.year=(year||null); } });
   closeModal(); renderMaybe();
 }
 async function deleteMovie(id){
@@ -501,7 +560,7 @@ function viewHome(){
         +'<div class="meta">'+(l.isPublic?'enlace para compartir':('código '+esc(l.code||'')))+'</div></button>';
     }); }
   }
-  return head+cards+'</div>';
+  return head+cards+'<p class="tmdbcredit">Este producto usa la API de TMDB, pero no está avalado ni certificado por TMDB.</p></div>';
 }
 
 function viewList(){
@@ -542,11 +601,15 @@ function filmCard(f){
   var seenN=0; S.members.forEach(function(mm){ if(set[mm.id])seenN++; });
   var tagsH=""; (f.tags||[]).forEach(function(t){ tagsH+='<span class="ftag">'+esc(t)+'</span>'; });
   var toggle='<button class="seentoggle '+(iSaw?"yes":"")+'" data-act="rate" data-arg="'+esc(f.id)+'"><span class="bx">'+(iSaw?"✓":"")+'</span>'+(iSaw?"Visto":"Marcar visto")+'</button>';
+  var st=ratingStats(f.id);
+  var ratePart=st?' <span class="sep">·</span> <span class="ratechip">★ '+fmtAvg(st.avg)+'</span>':'';
   return '<div class="film '+(done?"done":"")+' editable" data-act="editMovie" data-arg="'+esc(f.id)+'">'
-    +'<div class="ft">'+esc(f.title)+(done?' <span class="badge-done">· visto por todos</span>':'')+'</div>'
+    +'<div class="filmtop">'+posterBox(f.poster)+'<div class="filmbody">'
+    +'<div class="ft">'+esc(f.title)+(f.year?' <span class="fyear">('+esc(f.year)+')</span>':'')+(done?' <span class="badge-done">· visto por todos</span>':'')+'</div>'
     +(f.note?'<div class="fn">'+esc(f.note)+'</div>':'')
     +(tagsH?'<div class="ftags">'+tagsH+'</div>':'')
-    +'<div class="seenline"><button class="seenwho" data-act="seenWho" data-arg="'+esc(f.id)+'"><span class="avstack">'+av+'</span><span class="seencount">'+seenN+'/'+S.members.length+' vistos</span>'+(function(){var st=ratingStats(f.id);return st?' <span class="sep">·</span> <span class="ratechip">★ '+fmtAvg(st.avg)+'</span>':'';})()+'</button>'+toggle+'</div>'
+    +'</div></div>'
+    +'<div class="seenline"><button class="seenwho" data-act="seenWho" data-arg="'+esc(f.id)+'"><span class="avstack">'+av+'</span><span class="seencount">'+seenN+'/'+S.members.length+' vistos</span>'+ratePart+'</button>'+toggle+'</div>'
     +(f.addedByName?'<div class="by">recomendada por '+esc(f.addedByName)+(isFounder(f.addedBy)?founderTag():"")+'</div>':'')+'</div>';
 }
 
@@ -589,22 +652,6 @@ var H={
   home:function(){ teardown(); S.listId=null; try{history.replaceState(null,"","#");}catch(e){} S.view="home"; render(); loadMyLists(); },
   leave:function(){ if(confirm("¿Salir de esta lista? Podrás volver con el código o el enlace.")) leaveList(); },
   filter:function(f){ S.filter=f; render(); },
-  rate:function(id){
-    var f=S.movies.filter(function(m){return m.id===id;})[0]; if(!f)return; _rateMovie=id;
-    var sid=id+"__"+me.id, cur=S.seen.filter(function(s){return s.id===sid;})[0];
-    _rateVal=(cur&&typeof cur.rating==="number")?cur.rating:0; var seen=!!cur;
-    openModal('<h2>'+esc(f.title)+'</h2>'
-      +'<p class="hint" style="margin:-6px 0 0;text-align:center">Tu nota <span class="opt">(opcional)</span></p>'
-      +'<div class="starsinput" id="starsin">'+starsInner(_rateVal)+'</div>'
-      +'<div class="ratenum" id="ratenum">'+(_rateVal?fmtRating(_rateVal):"—")+'</div>'
-      +'<button class="btn block" data-act="saveRate">'+(seen?"Guardar nota":"Marcar visto")+'</button>'
-      +'<button class="btn line block" style="margin-top:10px" data-act="saveSeenNoRate">Visto sin nota</button>'
-      +(seen?'<button class="btn danger block" style="margin-top:10px" data-act="unsee" data-arg="'+esc(id)+'">Quitar visto</button>':''));
-  },
-  setStar:function(v){ _rateVal=parseFloat(v); var si=$("starsin"); if(si)si.innerHTML=starsInner(_rateVal); var rn=$("ratenum"); if(rn)rn.textContent=_rateVal?fmtRating(_rateVal):"—"; },
-  saveRate:function(){ if(!_rateMovie)return; var id=_rateMovie, r=_rateVal>0?_rateVal:null; closeModal(); setSeen(id,r); },
-  saveSeenNoRate:function(){ if(!_rateMovie)return; var id=_rateMovie; closeModal(); setSeen(id,null); },
-  unsee:function(id){ closeModal(); removeSeen(id); },
   members:function(){
     var rows=S.members.map(function(m){return personRow(m.id,m.name,"");}).join("");
     openModal('<h2>En esta lista</h2>'+(rows||'<p class="hint">Todavía no hay nadie.</p>'));
@@ -624,6 +671,22 @@ var H={
     }).join("");
     openModal('<h2>'+esc(f.title)+'</h2>'+head+(rows||'<p class="hint">Aún no hay nadie en la lista.</p>'));
   },
+  rate:function(id){
+    var f=S.movies.filter(function(m){return m.id===id;})[0]; if(!f)return; _rateMovie=id;
+    var sid=id+"__"+me.id, cur=S.seen.filter(function(s){return s.id===sid;})[0];
+    _rateVal=(cur&&typeof cur.rating==="number")?cur.rating:0; var seen=!!cur;
+    openModal('<h2>'+esc(f.title)+'</h2>'
+      +'<p class="hint" style="margin:-6px 0 0;text-align:center">Tu nota <span class="opt">(opcional)</span></p>'
+      +'<div class="starsinput" id="starsin">'+starsInner(_rateVal)+'</div>'
+      +'<div class="ratenum" id="ratenum">'+(_rateVal?fmtRating(_rateVal):"—")+'</div>'
+      +'<button class="btn block" data-act="saveRate">'+(seen?"Guardar nota":"Marcar visto")+'</button>'
+      +'<button class="btn line block" style="margin-top:10px" data-act="saveSeenNoRate">Visto sin nota</button>'
+      +(seen?'<button class="btn danger block" style="margin-top:10px" data-act="unsee" data-arg="'+esc(id)+'">Quitar visto</button>':''));
+  },
+  setStar:function(v){ _rateVal=parseFloat(v); var si=$("starsin"); if(si)si.innerHTML=starsInner(_rateVal); var rn=$("ratenum"); if(rn)rn.textContent=_rateVal?fmtRating(_rateVal):"—"; },
+  saveRate:function(){ if(!_rateMovie)return; var id=_rateMovie, r=_rateVal>0?_rateVal:null; closeModal(); setSeen(id,r); },
+  saveSeenNoRate:function(){ if(!_rateMovie)return; var id=_rateMovie; closeModal(); setSeen(id,null); },
+  unsee:function(id){ closeModal(); removeSeen(id); },
   nameGo:function(){ var i=$("nm"); if(!i)return; var v=i.value.trim(); if(!v){i.focus();return;} me.name=v; localStorage.setItem("arsoss.name",v);
     if(sb)sb.auth.updateUser({data:{name:v}}).then(function(){},function(){});
     var h=S._pendingHash; S._pendingHash=null; if(h){openList(h);}else{S.view="home";render();loadMyLists();} },
@@ -682,24 +745,38 @@ var H={
   addTagManage:function(){ var i=$("ntg"); var v=i.value.trim(); if(!v)return; addTag(v).then(function(n){ if(n)H.modalTags(); }); },
   delTag:function(t){ if(confirm('¿Borrar la etiqueta “'+t+'”?')) deleteTag(t).then(function(){ H.modalTags(); }); },
   modalAdd:function(){
-    openModal('<h2>Añadir peli</h2><label class="lbl">Título</label><input id="mt" class="field" placeholder="título de la película" maxlength="90">'
+    _pickPoster=null; _pickYear=null; _tmdbResults=[];
+    openModal('<h2>Añadir peli</h2><label class="lbl">Título <span class="opt">(empieza a escribir y elige de la lista)</span></label>'
+      +'<input id="mt" class="field" placeholder="título de la película" maxlength="90" autocomplete="off">'
+      +'<div class="tmdbres" id="tmdbres"></div><div id="tmdbpreview"></div>'
       +'<label class="lbl" style="margin-top:14px">Por qué la recomiendas <span class="opt">(opcional)</span></label>'
       +'<input id="mn" class="field" placeholder="una frase, dónde verla…" maxlength="160">'
       +tagPickHtml([])+'<button class="btn block" style="margin-top:18px" data-act="doAdd">Añadir a la lista</button>');
-    setTimeout(function(){var e=$("mt");if(e)e.focus();},50);
+    setTimeout(function(){var e=$("mt");if(e){e.focus();} bindTitleSearch();},50);
   },
-  doAdd:function(){ addMovie($("mt").value,$("mn").value,selectedPicks()); },
+  doAdd:function(){ addMovie($("mt").value,$("mn").value,selectedPicks(),_pickPoster,_pickYear); },
   editMovie:function(id){
     var f=S.movies.filter(function(m){return m.id===id;})[0]; if(!f)return; editingId=id;
-    openModal('<h2>Editar peli</h2><label class="lbl">Título</label><input id="mt" class="field" value="'+esc(f.title)+'" maxlength="90">'
+    _pickPoster=f.poster||null; _pickYear=f.year||null; _tmdbResults=[];
+    openModal('<h2>Editar peli</h2><label class="lbl">Título</label><input id="mt" class="field" value="'+esc(f.title)+'" maxlength="90" autocomplete="off">'
+      +'<div class="tmdbres" id="tmdbres"></div><div id="tmdbpreview"></div>'
       +'<label class="lbl" style="margin-top:14px">Por qué la recomiendas <span class="opt">(opcional)</span></label>'
       +'<input id="mn" class="field" value="'+esc(f.note||"")+'" maxlength="160">'
       +tagPickHtml(f.tags||[])
       +'<button class="btn block" style="margin-top:18px" data-act="doUpdate">Guardar</button>'
       +'<button class="btn danger block" style="margin-top:10px" data-act="doDelete">Eliminar peli</button>');
+    setTimeout(function(){ bindTitleSearch(); renderPickPreview(); },50);
   },
-  doUpdate:function(){ if(!editingId)return; updateMovie(editingId,$("mt").value,$("mn").value,selectedPicks()); },
+  doUpdate:function(){ if(!editingId)return; updateMovie(editingId,$("mt").value,$("mn").value,selectedPicks(),_pickPoster,_pickYear); },
   doDelete:function(){ if(!editingId)return; var id=editingId; if(confirm("¿Eliminar esta peli de la lista?")) deleteMovie(id); },
+  pickTmdb:function(i){
+    var m=_tmdbResults[parseInt(i,10)]; if(!m)return;
+    _pickPoster=m.poster_path||null; _pickYear=((m.release_date||"").slice(0,4))||null;
+    var mt=$("mt"); if(mt)mt.value=(m.title||m.original_title||mt.value);
+    var box=$("tmdbres"); if(box)box.innerHTML="";
+    renderPickPreview();
+  },
+  clearPick:function(){ _pickPoster=null; _pickYear=null; renderPickPreview(); },
   togglePick:function(v,el){ el.classList.toggle("on"); },
   pickNewTag:function(){ var i=$("newtag"); var v=i.value.trim(); if(!v)return; addTag(v).then(function(name){ if(!name)return;
     var box=$("mtags"); if(box.querySelector(".hint"))box.innerHTML="";
