@@ -179,20 +179,13 @@ code{background:var(--surface-2); padding:1px 6px; border-radius:6px; font-size:
 <script>
 "use strict";
 /* ============================================================
-   CONFIG  ·  pega aquí tus dos datos de Supabase
-   (Settings → API Keys  y  Data API).
-   La clave pública es segura en el navegador.
+   CONFIG de Supabase  (clave pública: segura en el navegador).
    NUNCA pongas aquí la clave secreta / service_role.
    ============================================================ */
-var SUPABASE_URL      = "https://haviyreegwsmjouzjbqi.supabase.co";      // https://xxxx.supabase.co   (sin /rest/v1/)
-var SUPABASE_ANON_KEY = "sb_publishable_C_8u0SolgkKU9fEQ1adplA_wqolI97V";    // sb_publishable_...
+var SUPABASE_URL      = "https://haviyreegwsmjouzjbqi.supabase.co";
+var SUPABASE_ANON_KEY = "sb_publishable_C_8u0SolgkKU9fEQ1adplA_wqolI97V";
 
-/* --- Insignia de fundador (solo tu cuenta) ---------------------
-   Déjalo vacío la primera vez. Abre la app, entra en tu Perfil
-   (toca tu nombre arriba a la derecha) y copia el "ID de tu cuenta".
-   Pégalo aquí entre las comillas, vuelve a subir el archivo, y tu
-   insignia la verá todo el mundo. Es un código interno sin datos
-   personales: por eso va aquí en vez de tu correo. */
+/* --- Insignia de fundador (atada a una sola cuenta) --- */
 var FOUNDER_UID   = "7a4af0da-a549-4cbd-9057-0fac8c470bb9";
 var FOUNDER_TITLE = "Founder & CEO";
 /* ============================================================ */
@@ -202,7 +195,7 @@ var AVA_COLORS=["#c9761a","#2a9b76","#5b6ee1","#c0485f","#8a52c7","#2f9bb5","#c7
 
 var sb=null, channel=null, cloudReady=false;
 var me={id:null,name:""};
-var S={view:"loading",authMode:"in",_email:"",listId:null,filter:"all",meta:null,members:[],movies:[],seen:[],loading:true,_pendingHash:null};
+var S={view:"loading",authMode:"in",_email:"",listId:null,filter:"all",meta:null,members:[],movies:[],seen:[],loading:true,_pendingHash:null,homeLists:null,homeLoading:false};
 var modal=null, editingId=null, _memberTried=false, _rf=null;
 
 /* ---- utils ---- */
@@ -236,16 +229,12 @@ function authErrText(e){ var m=(e&&e.message)||"";
   if(/Failed to fetch|NetworkError/i.test(m))return "Sin conexión. Revisa tu internet y la clave de Supabase.";
   return m||"No se pudo. Inténtalo de nuevo."; }
 
-function myLists(){try{return JSON.parse(localStorage.getItem("arsoss.myLists")||"[]");}catch(e){return [];}}
-function saveMyList(o){var l=myLists().filter(function(x){return x.id!==o.id;});l.unshift(o);localStorage.setItem("arsoss.myLists",JSON.stringify(l.slice(0,60)));}
-function dropMyList(id){localStorage.setItem("arsoss.myLists",JSON.stringify(myLists().filter(function(x){return x.id!==id;})));}
-
 /* ---- arranque + sesión ---- */
 async function boot(){
   if(SUPABASE_URL.indexOf("PON_AQUI")>=0||SUPABASE_ANON_KEY.indexOf("PON_AQUI")>=0){ S.view="config"; render(); return; }
   if(!window.supabase||!window.supabase.createClient){ S.view="config"; render(); return; }
   try{ sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY); }catch(e){ S.view="config"; render(); return; }
-  sb.auth.onAuthStateChange(function(ev){ if(ev==="SIGNED_OUT"){ teardown(); S.listId=null; cloudReady=false; S.view="login"; render(); } });
+  sb.auth.onAuthStateChange(function(ev){ if(ev==="SIGNED_OUT"){ teardown(); S.listId=null; S.homeLists=null; cloudReady=false; S.view="login"; render(); } });
   var r; try{ r=await sb.auth.getSession(); }catch(e){ S.view="login"; render(); return; }
   var session=r&&r.data&&r.data.session;
   if(!session){ S.view="login"; render(); return; }
@@ -259,10 +248,32 @@ function afterAuth(session){
   if(!nm){ S.view="needName"; S._pendingHash=hash||null; render(); return; }
   localStorage.setItem("arsoss.name",nm);
   if(hash){ openList(hash); return; }
-  S.view="home"; render();
+  S.view="home"; render(); loadMyLists();
 }
 
-/* ---- datos ---- */
+/* "Tus listas" se leen de tu CUENTA (tabla members), no del dispositivo,
+   para que te sigan en cualquier móvil u ordenador. */
+async function loadMyLists(){
+  if(!sb||!me.id)return;
+  S.homeLoading=true; if(S.view==="home")render();
+  var ids=[];
+  try{
+    var r1=await sb.from("members").select("list_id").eq("user_id",me.id);
+    if(r1.error)throw r1.error;
+    ids=(r1.data||[]).map(function(x){return x.list_id;});
+  }catch(e){ S.homeLoading=false; if(S.view==="home")render(); toast(errText(e)); return; }
+  var lists=[];
+  if(ids.length){
+    try{
+      var r2=await sb.from("lists").select("id,name,code,is_public,created_at").in("id",ids).order("created_at",{ascending:false});
+      if(!r2.error) lists=(r2.data||[]).map(function(l){return {id:l.id,name:l.name,code:l.code,isPublic:l.is_public};});
+    }catch(e2){}
+  }
+  S.homeLists=lists; S.homeLoading=false;
+  if(S.view==="home")render();
+}
+
+/* ---- datos de una lista ---- */
 async function fetchState(id){
   var r;
   try{
@@ -281,7 +292,6 @@ async function fetchState(id){
   S.members=(r[1].data||[]).map(function(m){return {id:m.user_id,name:m.name};});
   S.movies=(r[2].data||[]).map(function(m){return {id:m.id,title:m.title,note:m.note,tags:m.tags||[],addedBy:m.added_by,addedByName:m.added_by_name,createdAt:m.created_at};});
   S.seen=(r[3].data||[]).map(function(s){return {id:s.movie_id+"__"+s.user_id,movieId:s.movie_id,userId:s.user_id};});
-  saveMyList({id:id,name:L.name,code:L.code,isPublic:L.is_public});
   S.loading=false; renderMaybe(); ensureMember();
 }
 function scheduleRefetch(){ clearTimeout(_rf); _rf=setTimeout(function(){ if(S.listId)fetchState(S.listId); },250); }
@@ -317,7 +327,6 @@ async function createList(name,isPublic){
   }
   if(res.error){ sheetErr(errText(res.error)); return; }
   await sb.from("members").insert({list_id:id,user_id:me.id,name:me.name});
-  saveMyList({id:id,name:name,code:code,isPublic:isPublic});
   closeModal(); openList(id);
 }
 async function joinByCode(code){
@@ -378,7 +387,11 @@ async function deleteTag(tag){
       sb.from("movies").update({tags:nt}).eq("id",m.id).then(function(){}); } }
   if(S.filter===tag)S.filter="all";
 }
-function leaveList(){ dropMyList(S.listId); teardown(); S.listId=null; try{history.replaceState(null,"","#");}catch(e){} S.view="home"; render(); }
+function leaveList(){
+  var id=S.listId; teardown(); S.listId=null; try{history.replaceState(null,"","#");}catch(e){}
+  if(id)sb.from("members").delete().eq("list_id",id).eq("user_id",me.id).then(function(){loadMyLists();},function(){});
+  S.view="home"; render(); loadMyLists();
+}
 
 /* ---- derivados ---- */
 function seenSetFor(movieId){ var set={}; S.seen.forEach(function(s){ if(s.movieId===movieId)set[s.userId]=1; }); return set; }
@@ -437,17 +450,22 @@ function meChip(){ return '<button class="me-chip" data-act="profile"><span clas
 function topbar(left){ return '<div class="topbar"><div class="wrap"><div class="inner">'+left+'<span class="spacer"></span>'+meChip()+'</div></div></div>'; }
 
 function viewHome(){
-  var lists=myLists(),cards="";
-  if(lists.length===0){ cards='<div class="empty"><h3>Todavía no hay listas</h3><p>Crea una lista y comparte el enlace o el código, o únete a la de un amigo.</p></div>'; }
-  else { lists.forEach(function(l){
-    cards+='<button class="ticket" data-act="open" data-arg="'+esc(l.id)+'"><div class="row1"><span class="tname">'+esc(l.name)+'</span>'
-      +'<span class="pill '+(l.isPublic?'pub':'priv')+'">'+(l.isPublic?'pública':'privada')+'</span></div>'
-      +'<div class="meta">'+(l.isPublic?'enlace para compartir':('código '+esc(l.code||'')))+'</div></button>';
-  }); }
-  return topbar('<span class="brand">arsoss<span class="dot">.</span></span>')
+  var head=topbar('<span class="brand">arsoss<span class="dot">.</span></span>')
     +'<div class="wrap"><h2 class="sec-title">Tus listas</h2><p class="sec-sub">Watchlists compartidas con tu gente.</p>'
-    +'<div class="actions"><button class="btn" data-act="modalCreate">Crear lista</button><button class="btn ghost" data-act="modalJoin">Unirse</button></div>'
-    +cards+'</div>';
+    +'<div class="actions"><button class="btn" data-act="modalCreate">Crear lista</button><button class="btn ghost" data-act="modalJoin">Unirse</button></div>';
+  var cards;
+  if(S.homeLoading && !S.homeLists){
+    cards='<div class="center-load" style="min-height:28svh"><div><div class="spin"></div>cargando tus listas…</div></div>';
+  } else {
+    var lists=S.homeLists||[];
+    if(lists.length===0){ cards='<div class="empty"><h3>Todavía no hay listas</h3><p>Crea una lista y comparte el enlace o el código, o únete a la de un amigo.</p></div>'; }
+    else { cards=""; lists.forEach(function(l){
+      cards+='<button class="ticket" data-act="open" data-arg="'+esc(l.id)+'"><div class="row1"><span class="tname">'+esc(l.name)+'</span>'
+        +'<span class="pill '+(l.isPublic?'pub':'priv')+'">'+(l.isPublic?'pública':'privada')+'</span></div>'
+        +'<div class="meta">'+(l.isPublic?'enlace para compartir':('código '+esc(l.code||'')))+'</div></button>';
+    }); }
+  }
+  return head+cards+'</div>';
 }
 
 function viewList(){
@@ -532,7 +550,7 @@ var H={
     S._email=""; afterAuth(session);
   },
   open:function(id){ openList(id); },
-  home:function(){ teardown(); S.listId=null; try{history.replaceState(null,"","#");}catch(e){} S.view="home"; render(); },
+  home:function(){ teardown(); S.listId=null; try{history.replaceState(null,"","#");}catch(e){} S.view="home"; render(); loadMyLists(); },
   leave:function(){ if(confirm("¿Salir de esta lista? Podrás volver con el código o el enlace.")) leaveList(); },
   filter:function(f){ S.filter=f; render(); },
   seen:function(id){ toggleSeen(id); },
@@ -551,11 +569,11 @@ var H={
   },
   nameGo:function(){ var i=$("nm"); if(!i)return; var v=i.value.trim(); if(!v){i.focus();return;} me.name=v; localStorage.setItem("arsoss.name",v);
     if(sb)sb.auth.updateUser({data:{name:v}}).then(function(){},function(){});
-    var h=S._pendingHash; S._pendingHash=null; if(h){openList(h);}else{S.view="home";render();} },
+    var h=S._pendingHash; S._pendingHash=null; if(h){openList(h);}else{S.view="home";render();loadMyLists();} },
   profile:function(){
     var badge=isFounder(me.id)?founderTag():"";
-    var idline='<p class="hint" style="margin-top:18px">ID de tu cuenta <span class="opt">(para la insignia de fundador)</span>:</p>'
-      +'<div style="display:flex;gap:8px;margin-top:6px"><input class="field" readonly value="'+esc(me.id)+'" onclick="this.select()" style="flex:1;font-size:12.5px"><button class="btn line sm" data-act="copy" data-arg="'+esc(me.id)+'">Copiar</button></div>';
+    var idline=isFounder(me.id)?('<p class="hint" style="margin-top:18px">ID de tu cuenta <span class="opt">(fundador)</span>:</p>'
+      +'<div style="display:flex;gap:8px;margin-top:6px"><input class="field" readonly value="'+esc(me.id)+'" onclick="this.select()" style="flex:1;font-size:12.5px"><button class="btn line sm" data-act="copy" data-arg="'+esc(me.id)+'">Copiar</button></div>'):"";
     openModal('<h2>Tu perfil</h2>'
       +'<div style="font-weight:600;margin:-4px 0 14px;font-size:16px">'+esc(me.name)+badge+'</div>'
       +'<label class="lbl">Tu nombre</label><input id="pn" class="field" value="'+esc(me.name)+'" maxlength="24"><p class="hint">Así te ven los demás en las listas.</p>'
