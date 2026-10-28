@@ -169,6 +169,20 @@ code{background:var(--surface-2); padding:1px 6px; border-radius:6px; font-size:
 .seentag{font-size:11.5px; font-weight:700; padding:3px 11px; border-radius:999px; white-space:nowrap}
 .seentag.yes{background:var(--jade); color:var(--jade-ink)}
 .seentag.no{background:var(--surface-2); color:var(--muted)}
+.starsinput{display:flex; gap:8px; justify-content:center; margin:12px 0 4px}
+.starwrap{position:relative; width:42px; height:42px; display:inline-block}
+.starwrap .star{position:absolute; inset:0; display:grid; place-items:center; font-size:40px; line-height:1; color:var(--line); pointer-events:none}
+.starwrap .star.full{color:#f0b429; -webkit-text-fill-color:#f0b429}
+.starwrap .star.half{background:linear-gradient(90deg,#f0b429 50%,var(--line) 50%); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent}
+.starhalf{position:absolute; top:0; height:100%; width:50%; background:none; border:none; padding:0; margin:0; z-index:2; cursor:pointer}
+.starhalf.left{left:0} .starhalf.right{right:0}
+.ratenum{text-align:center; font-weight:700; font-size:18px; color:var(--muted); margin:2px 0 14px}
+.ratechip{font-size:12.5px; font-weight:700; color:#e0a21c; white-space:nowrap}
+.mediabox{font-weight:700; font-size:15px; margin:-4px 0 12px}
+.starsro{display:inline-flex; gap:1px; white-space:nowrap}
+.sro{font-size:15px; color:var(--line); line-height:1}
+.sro.full{color:#e0a21c; -webkit-text-fill-color:#e0a21c}
+.sro.half{background:linear-gradient(90deg,#e0a21c 50%,var(--line) 50%); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent}
 </style>
 </head>
 <body>
@@ -196,7 +210,7 @@ var AVA_COLORS=["#c9761a","#2a9b76","#5b6ee1","#c0485f","#8a52c7","#2f9bb5","#c7
 var sb=null, channel=null, cloudReady=false;
 var me={id:null,name:""};
 var S={view:"loading",authMode:"in",_email:"",listId:null,filter:"all",meta:null,members:[],movies:[],seen:[],loading:true,_pendingHash:null,homeLists:null,homeLoading:false};
-var modal=null, editingId=null, _memberTried=false, _rf=null;
+var modal=null, editingId=null, _memberTried=false, _rf=null, _rateVal=0, _rateMovie=null;
 
 /* ---- utils ---- */
 function $(id){return document.getElementById(id);}
@@ -211,6 +225,22 @@ function personRow(uid,name,right){
   return '<div class="prow"><span class="ava" style="background:'+colorFor(uid)+'">'+esc(initials(name))+'</span>'
     +'<span class="nm">'+esc(name)+(uid===me.id?' <span class="sep">·</span> <span class="you">tú</span>':'')+(isFounder(uid)?founderTag():'')+'</span>'
     +(right||'')+'</div>';
+}
+function fmtRating(n){ return (n%1===0)?String(n):String(n).replace(".",","); }
+function fmtAvg(n){ return n.toFixed(1).replace(".",","); }
+function ratingStats(movieId){
+  var vals=[]; S.seen.forEach(function(s){ if(s.movieId===movieId&&typeof s.rating==="number"&&s.rating>0)vals.push(s.rating); });
+  if(!vals.length)return null;
+  var sum=0; vals.forEach(function(v){sum+=v;});
+  return {avg:sum/vals.length, count:vals.length};
+}
+function starsInner(r){
+  var h=""; for(var i=1;i<=5;i++){ var full=r>=i, half=!full&&r>=i-0.5;
+    h+='<span class="starwrap"><button class="starhalf left" data-act="setStar" data-arg="'+(i-0.5)+'"></button><button class="starhalf right" data-act="setStar" data-arg="'+i+'"></button><span class="star '+(full?"full":half?"half":"")+'">★</span></span>'; }
+  return h;
+}
+function starsDisplay(r){
+  var h='<span class="starsro">'; for(var i=1;i<=5;i++){ var full=r>=i, half=!full&&r>=i-0.5; h+='<span class="sro '+(full?"full":half?"half":"")+'">★</span>'; } return h+'</span>';
 }
 function toast(t){var el=$("toast");el.textContent=t;el.classList.add("show");clearTimeout(el._t);el._t=setTimeout(function(){el.classList.remove("show");},2600);}
 function sheetErr(msg){var s=modal&&modal.querySelector(".sheet");if(!s)return;var e=s.querySelector(".err");if(!e){e=document.createElement("div");e.className="err";s.appendChild(e);}e.textContent=msg;}
@@ -291,7 +321,7 @@ async function fetchState(id){
   S.meta={name:L.name,isPublic:L.is_public,code:L.code,tags:L.tags||[],createdBy:L.created_by};
   S.members=(r[1].data||[]).map(function(m){return {id:m.user_id,name:m.name};});
   S.movies=(r[2].data||[]).map(function(m){return {id:m.id,title:m.title,note:m.note,tags:m.tags||[],addedBy:m.added_by,addedByName:m.added_by_name,createdAt:m.created_at};});
-  S.seen=(r[3].data||[]).map(function(s){return {id:s.movie_id+"__"+s.user_id,movieId:s.movie_id,userId:s.user_id};});
+  S.seen=(r[3].data||[]).map(function(s){return {id:s.movie_id+"__"+s.user_id,movieId:s.movie_id,userId:s.user_id,rating:(typeof s.rating==="number"?s.rating:null)};});
   S.loading=false; renderMaybe(); ensureMember();
 }
 function scheduleRefetch(){ clearTimeout(_rf); _rf=setTimeout(function(){ if(S.listId)fetchState(S.listId); },250); }
@@ -359,13 +389,19 @@ async function deleteMovie(id){
   S.seen=S.seen.filter(function(s){return s.movieId!==id;});
   closeModal(); renderMaybe();
 }
-async function toggleSeen(movieId){
-  var sid=movieId+"__"+me.id, already=S.seen.filter(function(s){return s.id===sid;})[0];
-  if(already){ S.seen=S.seen.filter(function(s){return s.id!==sid;}); renderMaybe();
-    var res=await sb.from("seen").delete().eq("movie_id",movieId).eq("user_id",me.id); if(res.error)toast(errText(res.error));
-  } else { S.seen.push({id:sid,movieId:movieId,userId:me.id}); renderMaybe();
-    var res2=await sb.from("seen").insert({list_id:S.listId,movie_id:movieId,user_id:me.id}); if(res2.error&&res2.error.code!=="23505")toast(errText(res2.error));
-  }
+async function setSeen(movieId,rating){
+  rating=(typeof rating==="number"&&rating>0)?rating:null;
+  var sid=movieId+"__"+me.id, ex=S.seen.filter(function(s){return s.id===sid;})[0];
+  if(ex){ ex.rating=rating; } else { S.seen.push({id:sid,movieId:movieId,userId:me.id,rating:rating}); }
+  renderMaybe();
+  var res=await sb.from("seen").upsert({list_id:S.listId,movie_id:movieId,user_id:me.id,rating:rating},{onConflict:"movie_id,user_id"});
+  if(res.error)toast(errText(res.error));
+}
+async function removeSeen(movieId){
+  var sid=movieId+"__"+me.id;
+  S.seen=S.seen.filter(function(s){return s.id!==sid;}); renderMaybe();
+  var res=await sb.from("seen").delete().eq("movie_id",movieId).eq("user_id",me.id);
+  if(res.error)toast(errText(res.error));
 }
 async function addTag(name){
   name=(name||"").trim(); if(!name)return null;
@@ -505,12 +541,12 @@ function filmCard(f){
   S.members.forEach(function(mm){ if(set[mm.id])av+='<span class="ava" style="width:22px;height:22px;background:'+colorFor(mm.id)+'" title="'+esc(mm.name)+'">'+esc(initials(mm.name))+'</span>'; });
   var seenN=0; S.members.forEach(function(mm){ if(set[mm.id])seenN++; });
   var tagsH=""; (f.tags||[]).forEach(function(t){ tagsH+='<span class="ftag">'+esc(t)+'</span>'; });
-  var toggle='<button class="seentoggle '+(iSaw?"yes":"")+'" data-act="seen" data-arg="'+esc(f.id)+'"><span class="bx">'+(iSaw?"✓":"")+'</span>'+(iSaw?"Visto":"Marcar visto")+'</button>';
+  var toggle='<button class="seentoggle '+(iSaw?"yes":"")+'" data-act="rate" data-arg="'+esc(f.id)+'"><span class="bx">'+(iSaw?"✓":"")+'</span>'+(iSaw?"Visto":"Marcar visto")+'</button>';
   return '<div class="film '+(done?"done":"")+' editable" data-act="editMovie" data-arg="'+esc(f.id)+'">'
     +'<div class="ft">'+esc(f.title)+(done?' <span class="badge-done">· visto por todos</span>':'')+'</div>'
     +(f.note?'<div class="fn">'+esc(f.note)+'</div>':'')
     +(tagsH?'<div class="ftags">'+tagsH+'</div>':'')
-    +'<div class="seenline"><button class="seenwho" data-act="seenWho" data-arg="'+esc(f.id)+'"><span class="avstack">'+av+'</span><span class="seencount">'+seenN+'/'+S.members.length+' vistos</span></button>'+toggle+'</div>'
+    +'<div class="seenline"><button class="seenwho" data-act="seenWho" data-arg="'+esc(f.id)+'"><span class="avstack">'+av+'</span><span class="seencount">'+seenN+'/'+S.members.length+' vistos</span>'+(function(){var st=ratingStats(f.id);return st?' <span class="sep">·</span> <span class="ratechip">★ '+fmtAvg(st.avg)+'</span>':'';})()+'</button>'+toggle+'</div>'
     +(f.addedByName?'<div class="by">recomendada por '+esc(f.addedByName)+(isFounder(f.addedBy)?founderTag():"")+'</div>':'')+'</div>';
 }
 
@@ -553,19 +589,40 @@ var H={
   home:function(){ teardown(); S.listId=null; try{history.replaceState(null,"","#");}catch(e){} S.view="home"; render(); loadMyLists(); },
   leave:function(){ if(confirm("¿Salir de esta lista? Podrás volver con el código o el enlace.")) leaveList(); },
   filter:function(f){ S.filter=f; render(); },
-  seen:function(id){ toggleSeen(id); },
+  rate:function(id){
+    var f=S.movies.filter(function(m){return m.id===id;})[0]; if(!f)return; _rateMovie=id;
+    var sid=id+"__"+me.id, cur=S.seen.filter(function(s){return s.id===sid;})[0];
+    _rateVal=(cur&&typeof cur.rating==="number")?cur.rating:0; var seen=!!cur;
+    openModal('<h2>'+esc(f.title)+'</h2>'
+      +'<p class="hint" style="margin:-6px 0 0;text-align:center">Tu nota <span class="opt">(opcional)</span></p>'
+      +'<div class="starsinput" id="starsin">'+starsInner(_rateVal)+'</div>'
+      +'<div class="ratenum" id="ratenum">'+(_rateVal?fmtRating(_rateVal):"—")+'</div>'
+      +'<button class="btn block" data-act="saveRate">'+(seen?"Guardar nota":"Marcar visto")+'</button>'
+      +'<button class="btn line block" style="margin-top:10px" data-act="saveSeenNoRate">Visto sin nota</button>'
+      +(seen?'<button class="btn danger block" style="margin-top:10px" data-act="unsee" data-arg="'+esc(id)+'">Quitar visto</button>':''));
+  },
+  setStar:function(v){ _rateVal=parseFloat(v); var si=$("starsin"); if(si)si.innerHTML=starsInner(_rateVal); var rn=$("ratenum"); if(rn)rn.textContent=_rateVal?fmtRating(_rateVal):"—"; },
+  saveRate:function(){ if(!_rateMovie)return; var id=_rateMovie, r=_rateVal>0?_rateVal:null; closeModal(); setSeen(id,r); },
+  saveSeenNoRate:function(){ if(!_rateMovie)return; var id=_rateMovie; closeModal(); setSeen(id,null); },
+  unsee:function(id){ closeModal(); removeSeen(id); },
   members:function(){
     var rows=S.members.map(function(m){return personRow(m.id,m.name,"");}).join("");
     openModal('<h2>En esta lista</h2>'+(rows||'<p class="hint">Todavía no hay nadie.</p>'));
   },
   seenWho:function(id){
     var f=S.movies.filter(function(m){return m.id===id;})[0]; if(!f)return;
-    var set=seenSetFor(id);
+    var byUser={}; S.seen.forEach(function(s){ if(s.movieId===id)byUser[s.userId]=s; });
+    var st=ratingStats(id);
+    var head=st?('<div class="mediabox">Media <span class="ratechip">★ '+fmtAvg(st.avg)+'</span> <span class="opt">· '+st.count+(st.count===1?" voto":" votos")+'</span></div>')
+               :'<p class="hint" style="margin:-8px 0 8px">Quién la ha visto</p>';
     var rows=S.members.map(function(m){
-      var tag=set[m.id]?'<span class="seentag yes">visto</span>':'<span class="seentag no">sin ver</span>';
-      return personRow(m.id,m.name,tag);
+      var s=byUser[m.id], right;
+      if(!s) right='<span class="seentag no">sin ver</span>';
+      else if(typeof s.rating==="number"&&s.rating>0) right=starsDisplay(s.rating);
+      else right='<span class="seentag yes">visto</span>';
+      return personRow(m.id,m.name,right);
     }).join("");
-    openModal('<h2>'+esc(f.title)+'</h2><p class="hint" style="margin:-8px 0 8px">Quién la ha visto</p>'+(rows||'<p class="hint">Aún no hay nadie en la lista.</p>'));
+    openModal('<h2>'+esc(f.title)+'</h2>'+head+(rows||'<p class="hint">Aún no hay nadie en la lista.</p>'));
   },
   nameGo:function(){ var i=$("nm"); if(!i)return; var v=i.value.trim(); if(!v){i.focus();return;} me.name=v; localStorage.setItem("arsoss.name",v);
     if(sb)sb.auth.updateUser({data:{name:v}}).then(function(){},function(){});
