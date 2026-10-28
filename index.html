@@ -81,7 +81,7 @@ label.lbl .opt{font-weight:400; color:var(--faint)}
 .brand .dot{color:var(--accent)}
 .iconbtn{border:none; background:var(--surface-2); color:var(--text); width:38px; height:38px; border-radius:50%; display:grid; place-items:center; font-size:18px; flex:none;}
 .spacer{flex:1}
-.me-chip{display:flex; align-items:center; gap:8px; background:var(--surface-2); border-radius:999px; padding:5px 12px 5px 6px; font-size:13.5px; font-weight:600; border:none; color:var(--text)}
+.me-chip{display:flex; align-items:center; gap:8px; background:var(--surface-2); border-radius:999px; padding:5px 12px 5px 6px; font-size:13.5px; font-weight:600; border:none; color:var(--text); white-space:nowrap; max-width:72vw; overflow:hidden}
 .ava{width:26px; height:26px; border-radius:50%; display:grid; place-items:center; font-size:12px; font-weight:700; color:#fff; flex:none}
 .sec-title{font-family:"Fraunces",serif; font-size:26px; font-weight:600; margin:26px 0 4px; letter-spacing:-.01em}
 .sec-sub{color:var(--muted); margin:0 0 18px; font-size:14.5px}
@@ -149,11 +149,26 @@ label.lbl .opt{font-weight:400; color:var(--faint)}
 .taglist .t button{border:none; background:transparent; color:var(--danger); font-weight:700; font-size:20px; line-height:1; padding:0 4px}
 .toast{position:fixed; left:50%; bottom:calc(84px + env(safe-area-inset-bottom,0px)); transform:translateX(-50%); z-index:80; background:var(--text); color:var(--bg); padding:11px 18px; border-radius:999px; font-size:13.5px; font-weight:600; box-shadow:var(--shadow); opacity:0; transition:opacity .2s; max-width:88%; text-align:center}
 .toast.show{opacity:1}
-.banner{background:var(--surface-2); color:var(--muted); font-size:13px; padding:10px 14px; border-radius:12px; margin-top:14px; line-height:1.4; text-align:left}
+.banner{background:var(--surface-2); color:var(--muted); font-size:13px; padding:10px 14px; border-radius:12px; margin-top:14px; line-height:1.45; text-align:left}
 .center-load{min-height:60svh; display:grid; place-items:center; color:var(--muted)}
 .spin{width:26px;height:26px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--accent);animation:sp .8s linear infinite;margin:0 auto 10px}
 @keyframes sp{to{transform:rotate(360deg)}}
-code{background:var(--surface-2); padding:1px 6px; border-radius:6px; font-size:.9em}
+code{background:var(--surface-2); padding:1px 6px; border-radius:6px; font-size:.9em; word-break:break-all}
+.sep{color:var(--faint); font-weight:400; margin:0 2px}
+.founder{font-weight:700; color:#B08D57;
+  background:linear-gradient(100deg,#8f7140 0%,#B08D57 30%,#f2e2bd 50%,#B08D57 70%,#8f7140 100%);
+  background-size:220% 100%; -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
+  animation:shine 3.6s linear infinite;}
+@keyframes shine{from{background-position:120% 0}to{background-position:-120% 0}}
+@media (prefers-reduced-motion:reduce){.founder{animation:none}}
+.submembers{display:inline-flex; align-items:center; gap:7px; background:none; border:none; padding:0; margin:0; color:inherit; font:inherit; cursor:pointer}
+.seenwho{display:flex; align-items:center; gap:8px; background:none; border:none; padding:0; margin:0; color:inherit; font:inherit; cursor:pointer; text-align:left}
+.prow{display:flex; align-items:center; gap:11px; padding:10px 2px}
+.prow .nm{flex:1; min-width:0; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.you{color:var(--faint); font-weight:400}
+.seentag{font-size:11.5px; font-weight:700; padding:3px 11px; border-radius:999px; white-space:nowrap}
+.seentag.yes{background:var(--jade); color:var(--jade-ink)}
+.seentag.no{background:var(--surface-2); color:var(--muted)}
 </style>
 </head>
 <body>
@@ -171,6 +186,15 @@ code{background:var(--surface-2); padding:1px 6px; border-radius:6px; font-size:
    ============================================================ */
 var SUPABASE_URL      = "https://haviyreegwsmjouzjbqi.supabase.co";      // https://xxxx.supabase.co   (sin /rest/v1/)
 var SUPABASE_ANON_KEY = "sb_publishable_C_8u0SolgkKU9fEQ1adplA_wqolI97V";    // sb_publishable_...
+
+/* --- Insignia de fundador (solo tu cuenta) ---------------------
+   Déjalo vacío la primera vez. Abre la app, entra en tu Perfil
+   (toca tu nombre arriba a la derecha) y copia el "ID de tu cuenta".
+   Pégalo aquí entre las comillas, vuelve a subir el archivo, y tu
+   insignia la verá todo el mundo. Es un código interno sin datos
+   personales: por eso va aquí en vez de tu correo. */
+var FOUNDER_UID   = "";
+var FOUNDER_TITLE = "Founder & CEO";
 /* ============================================================ */
 
 var ALPHA="ABCDEFGHJKMNPQRSTUVWXYZ23456789";
@@ -188,6 +212,13 @@ function genId(){var s="";for(var i=0;i<16;i++)s+=ALPHA[Math.floor(Math.random()
 function genCode(){var s="";for(var i=0;i<6;i++)s+=ALPHA[Math.floor(Math.random()*ALPHA.length)];return s;}
 function initials(n){n=(n||"").trim();if(!n)return "?";var p=n.split(/\s+/);return (p.length>1?(p[0][0]+p[1][0]):n.slice(0,2)).toUpperCase();}
 function colorFor(id){id=id||"";var h=0;for(var i=0;i<id.length;i++)h=(h*31+id.charCodeAt(i))>>>0;return AVA_COLORS[h%AVA_COLORS.length];}
+function isFounder(uid){ return !!(FOUNDER_UID && uid===FOUNDER_UID); }
+function founderTag(){ return ' <span class="sep">·</span> <span class="founder">'+esc(FOUNDER_TITLE)+'</span>'; }
+function personRow(uid,name,right){
+  return '<div class="prow"><span class="ava" style="background:'+colorFor(uid)+'">'+esc(initials(name))+'</span>'
+    +'<span class="nm">'+esc(name)+(uid===me.id?' <span class="sep">·</span> <span class="you">tú</span>':'')+(isFounder(uid)?founderTag():'')+'</span>'
+    +(right||'')+'</div>';
+}
 function toast(t){var el=$("toast");el.textContent=t;el.classList.add("show");clearTimeout(el._t);el._t=setTimeout(function(){el.classList.remove("show");},2600);}
 function sheetErr(msg){var s=modal&&modal.querySelector(".sheet");if(!s)return;var e=s.querySelector(".err");if(!e){e=document.createElement("div");e.className="err";s.appendChild(e);}e.textContent=msg;}
 function loginErr(msg){var e=$("loginerr");if(e)e.textContent=msg||"";}
@@ -196,7 +227,7 @@ function errText(e){ if(!e)return "Error desconocido.";var m=e.message||String(e
   if(e.code==="23505")return "Ya existía (duplicado).";
   if(/row-level security|violates row|permission|not authorized/i.test(m))return "La base de datos rechazó la operación. Revisa que ejecutaste el SQL (políticas RLS).";
   return "No se pudo guardar: "+m; }
-function authErrText(e){ var m=(e&&e.message)||""; 
+function authErrText(e){ var m=(e&&e.message)||"";
   if(/Invalid login credentials/i.test(m))return "Correo o contraseña incorrectos.";
   if(/already registered|already exists|User already/i.test(m))return "Ese correo ya tiene cuenta. Pulsa “Entrar”.";
   if(/Password should be at least/i.test(m))return "La contraseña necesita al menos 6 caracteres.";
@@ -402,7 +433,7 @@ function viewName(){
 }
 function bindName(){ var i=$("nm"); if(!i)return; if(me.name)i.value=me.name; i.focus(); i.onkeydown=function(e){ if(e.key==="Enter")H.nameGo(); }; }
 
-function meChip(){ return '<button class="me-chip" data-act="profile"><span class="ava" style="background:'+colorFor(me.id)+'">'+esc(initials(me.name))+'</span>'+esc(me.name)+'</button>'; }
+function meChip(){ return '<button class="me-chip" data-act="profile"><span class="ava" style="background:'+colorFor(me.id)+'">'+esc(initials(me.name))+'</span>'+esc(me.name)+(isFounder(me.id)?founderTag():"")+'</button>'; }
 function topbar(left){ return '<div class="topbar"><div class="wrap"><div class="inner">'+left+'<span class="spacer"></span>'+meChip()+'</div></div></div>'; }
 
 function viewHome(){
@@ -446,7 +477,7 @@ function viewList(){
     +'<button class="iconbtn" style="width:32px;height:32px;font-size:15px;margin-left:auto" title="Compartir" data-act="modalShare">↗</button>'
     +'<button class="iconbtn" style="width:32px;height:32px;font-size:15px" title="Salir" data-act="leave">⋯</button></div>'
     +'<h1>'+esc(m.name)+'</h1>'
-    +'<div class="sub"><span class="avstack">'+av+'</span><span>'+mc+(mc===1?" persona":" personas")+'</span>'
+    +'<div class="sub"><button class="submembers" data-act="members"><span class="avstack">'+av+'</span><span>'+mc+(mc===1?" persona":" personas")+'</span></button>'
     +'<span>·</span><span>'+S.movies.length+" "+(S.movies.length===1?"peli":"pelis")+'</span></div></div>'
     +'<div class="chips">'+chips+'</div>'+body+'</div>'
     +'<button class="fab" data-act="modalAdd">＋ Añadir peli</button>';
@@ -461,8 +492,8 @@ function filmCard(f){
     +'<div class="ft">'+esc(f.title)+(done?' <span class="badge-done">· visto por todos</span>':'')+'</div>'
     +(f.note?'<div class="fn">'+esc(f.note)+'</div>':'')
     +(tagsH?'<div class="ftags">'+tagsH+'</div>':'')
-    +'<div class="seenline"><span class="avstack">'+av+'</span><span class="seencount">'+seenN+'/'+S.members.length+' vistos</span>'+toggle+'</div>'
-    +(f.addedByName?'<div class="by">recomendada por '+esc(f.addedByName)+'</div>':'')+'</div>';
+    +'<div class="seenline"><button class="seenwho" data-act="seenWho" data-arg="'+esc(f.id)+'"><span class="avstack">'+av+'</span><span class="seencount">'+seenN+'/'+S.members.length+' vistos</span></button>'+toggle+'</div>'
+    +(f.addedByName?'<div class="by">recomendada por '+esc(f.addedByName)+(isFounder(f.addedBy)?founderTag():"")+'</div>':'')+'</div>';
 }
 
 /* ===================== modales ===================== */
@@ -505,10 +536,34 @@ var H={
   leave:function(){ if(confirm("¿Salir de esta lista? Podrás volver con el código o el enlace.")) leaveList(); },
   filter:function(f){ S.filter=f; render(); },
   seen:function(id){ toggleSeen(id); },
+  members:function(){
+    var rows=S.members.map(function(m){return personRow(m.id,m.name,"");}).join("");
+    openModal('<h2>En esta lista</h2>'+(rows||'<p class="hint">Todavía no hay nadie.</p>'));
+  },
+  seenWho:function(id){
+    var f=S.movies.filter(function(m){return m.id===id;})[0]; if(!f)return;
+    var set=seenSetFor(id);
+    var rows=S.members.map(function(m){
+      var tag=set[m.id]?'<span class="seentag yes">visto</span>':'<span class="seentag no">sin ver</span>';
+      return personRow(m.id,m.name,tag);
+    }).join("");
+    openModal('<h2>'+esc(f.title)+'</h2><p class="hint" style="margin:-8px 0 8px">Quién la ha visto</p>'+(rows||'<p class="hint">Aún no hay nadie en la lista.</p>'));
+  },
   nameGo:function(){ var i=$("nm"); if(!i)return; var v=i.value.trim(); if(!v){i.focus();return;} me.name=v; localStorage.setItem("arsoss.name",v);
     if(sb)sb.auth.updateUser({data:{name:v}}).then(function(){},function(){});
     var h=S._pendingHash; S._pendingHash=null; if(h){openList(h);}else{S.view="home";render();} },
-  profile:function(){ openModal('<h2>Tu perfil</h2><label class="lbl">Tu nombre</label><input id="pn" class="field" value="'+esc(me.name)+'" maxlength="24"><p class="hint">Así te ven los demás en las listas.</p><button class="btn block" style="margin-top:16px" data-act="saveName">Guardar</button><button class="btn line block" style="margin-top:10px" data-act="logout">Cerrar sesión</button>'); setTimeout(function(){var e=$("pn");if(e)e.focus();},50); },
+  profile:function(){
+    var badge=isFounder(me.id)?founderTag():"";
+    var idline='<p class="hint" style="margin-top:18px">ID de tu cuenta <span class="opt">(para la insignia de fundador)</span>:</p>'
+      +'<div style="display:flex;gap:8px;margin-top:6px"><input class="field" readonly value="'+esc(me.id)+'" onclick="this.select()" style="flex:1;font-size:12.5px"><button class="btn line sm" data-act="copy" data-arg="'+esc(me.id)+'">Copiar</button></div>';
+    openModal('<h2>Tu perfil</h2>'
+      +'<div style="font-weight:600;margin:-4px 0 14px;font-size:16px">'+esc(me.name)+badge+'</div>'
+      +'<label class="lbl">Tu nombre</label><input id="pn" class="field" value="'+esc(me.name)+'" maxlength="24"><p class="hint">Así te ven los demás en las listas.</p>'
+      +'<button class="btn block" style="margin-top:16px" data-act="saveName">Guardar</button>'
+      +'<button class="btn line block" style="margin-top:10px" data-act="logout">Cerrar sesión</button>'
+      +idline);
+    setTimeout(function(){var e=$("pn");if(e)e.focus();},50);
+  },
   saveName:function(){ var v=$("pn").value.trim(); if(!v)return; me.name=v; localStorage.setItem("arsoss.name",v);
     if(sb)sb.auth.updateUser({data:{name:v}}).then(function(){},function(){});
     if(S.view==="list"){_memberTried=false;ensureMember();} closeModal(); render(); toast("Guardado"); },
