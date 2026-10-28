@@ -1,0 +1,530 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>arsoss</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,500&family=Hanken+Grotesque:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  color-scheme: light dark;
+  --bg:#f3eef3; --bg-elev:#ffffff; --surface:#ffffff; --surface-2:#ebe4ec;
+  --line:#e2d8e2; --text:#231a2d; --muted:#6b6175; --faint:#978da3;
+  --accent:#c9761a; --accent-2:#b2660f; --accent-ink:#fff6e9;
+  --accent-soft:#f7e6cf;
+  --jade:#2a9b76; --jade-ink:#ecfaf3; --jade-soft:#d8f0e6;
+  --danger:#c0485f;
+  --shadow:0 1px 2px rgba(40,25,55,.06), 0 8px 24px -14px rgba(40,25,55,.22);
+  --r:16px; --r-sm:11px;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px); -webkit-text-size-adjust:100%}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#140f1b; --bg-elev:#1d1626; --surface:#231b2e; --surface-2:#2e2539;
+    --line:#382e46; --text:#f2ecf6; --muted:#a99bb6; --faint:#7c7088;
+    --accent:#efa64f; --accent-2:#f6bd73; --accent-ink:#2a1a06;
+    --accent-soft:#3a2b17;
+    --jade:#68c6a4; --jade-ink:#07271c; --jade-soft:#1b3a30;
+    --danger:#e5718a;
+    --shadow:0 1px 2px rgba(0,0,0,.35), 0 10px 30px -16px rgba(0,0,0,.6);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#140f1b; --bg-elev:#1d1626; --surface:#231b2e; --surface-2:#2e2539;
+  --line:#382e46; --text:#f2ecf6; --muted:#a99bb6; --faint:#7c7088;
+  --accent:#efa64f; --accent-2:#f6bd73; --accent-ink:#2a1a06;
+  --accent-soft:#3a2b17;
+  --jade:#68c6a4; --jade-ink:#07271c; --jade-soft:#1b3a30;
+  --danger:#e5718a;
+  --shadow:0 1px 2px rgba(0,0,0,.35), 0 10px 30px -16px rgba(0,0,0,.6);
+}
+body{margin:0; background:var(--bg); color:var(--text); font-family:"Hanken Grotesque",system-ui,-apple-system,"Segoe UI",sans-serif; font-size:16px; line-height:1.45; -webkit-font-smoothing:antialiased; min-height:100svh;}
+body::before{content:""; position:fixed; inset:0 0 auto; height:env(safe-area-inset-top,0px); background:var(--bg); z-index:40;}
+button{font-family:inherit; cursor:pointer}
+input,textarea{font-family:inherit}
+::selection{background:var(--accent-soft)}
+.wrap{max-width:620px; margin:0 auto; padding:0 18px}
+.btn{border:none; border-radius:999px; padding:13px 20px; font-size:15px; font-weight:600; background:var(--accent); color:var(--accent-ink); transition:transform .08s ease, filter .15s ease;}
+.btn:active{transform:scale(.97)} .btn:hover{filter:brightness(1.04)}
+.btn.block{width:100%; display:block}
+.btn.ghost{background:var(--surface-2); color:var(--text)}
+.btn.line{background:transparent; color:var(--text); box-shadow:inset 0 0 0 1.5px var(--line)}
+.btn.danger{background:transparent; color:var(--danger); box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--danger) 45%, transparent)}
+.btn.sm{padding:9px 15px; font-size:14px}
+.btn:disabled{opacity:.5; cursor:not-allowed}
+.field{width:100%; border:1.5px solid var(--line); background:var(--bg-elev); color:var(--text); border-radius:var(--r-sm); padding:13px 15px; font-size:16px; outline:none; transition:border-color .15s;}
+.field:focus{border-color:var(--accent)}
+label.lbl{display:block; font-size:13px; font-weight:600; color:var(--muted); margin:0 0 7px 2px}
+label.lbl .opt{font-weight:400; color:var(--faint)}
+.screen{min-height:calc(100svh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px)); display:flex; flex-direction:column}
+.hero{flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:40px 24px; gap:6px; background:radial-gradient(120% 70% at 50% 0%, var(--accent-soft) 0%, transparent 55%);}
+.bulbs{display:flex; gap:11px; margin-bottom:20px}
+.bulbs i{width:9px; height:9px; border-radius:50%; background:var(--accent); box-shadow:0 0 10px 1px var(--accent); display:block; animation:flick 2.4s infinite ease-in-out;}
+.bulbs i:nth-child(2){animation-delay:.3s} .bulbs i:nth-child(3){animation-delay:.6s} .bulbs i:nth-child(4){animation-delay:.9s} .bulbs i:nth-child(5){animation-delay:1.2s}
+@keyframes flick{0%,100%{opacity:1}50%{opacity:.35}}
+.mark{font-family:"Fraunces",serif; font-weight:600; font-size:clamp(58px,20vw,92px); line-height:.9; letter-spacing:-.02em; margin:0; color:var(--text); animation:rise .7s cubic-bezier(.2,.7,.2,1) both;}
+.mark .dot{color:var(--accent)}
+.tag{color:var(--muted); font-size:16px; max-width:24ch; animation:rise .7s .08s cubic-bezier(.2,.7,.2,1) both}
+.namebox{width:100%; max-width:360px; margin-top:34px; display:flex; flex-direction:column; gap:12px; animation:rise .7s .16s cubic-bezier(.2,.7,.2,1) both}
+.foot{padding:18px 24px; text-align:center; color:var(--faint); font-size:12.5px}
+@keyframes rise{from{opacity:0; transform:translateY(12px)}to{opacity:1; transform:none}}
+@media (prefers-reduced-motion:reduce){.mark,.tag,.namebox{animation:none} .bulbs i{animation:none}}
+.topbar{position:sticky; top:env(safe-area-inset-top,0px); z-index:30; background:color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); border-bottom:1px solid var(--line);}
+.topbar .inner{display:flex; align-items:center; gap:12px; height:56px}
+.brand{font-family:"Fraunces",serif; font-weight:600; font-size:22px; letter-spacing:-.01em}
+.brand .dot{color:var(--accent)}
+.iconbtn{border:none; background:var(--surface-2); color:var(--text); width:38px; height:38px; border-radius:50%; display:grid; place-items:center; font-size:18px; flex:none;}
+.spacer{flex:1}
+.me-chip{display:flex; align-items:center; gap:8px; background:var(--surface-2); border-radius:999px; padding:5px 12px 5px 6px; font-size:13.5px; font-weight:600; border:none; color:var(--text)}
+.ava{width:26px; height:26px; border-radius:50%; display:grid; place-items:center; font-size:12px; font-weight:700; color:#fff; flex:none}
+.sec-title{font-family:"Fraunces",serif; font-size:26px; font-weight:600; margin:26px 0 4px; letter-spacing:-.01em}
+.sec-sub{color:var(--muted); margin:0 0 18px; font-size:14.5px}
+.actions{display:flex; gap:10px; margin:18px 0 8px}
+.actions .btn{flex:1}
+.ticket{position:relative; display:block; width:100%; text-align:left; background:var(--surface); border:1px solid var(--line); border-radius:var(--r); padding:16px 18px; margin-top:12px; box-shadow:var(--shadow); color:var(--text); overflow:hidden; cursor:pointer;}
+.ticket::before,.ticket::after{content:""; position:absolute; left:-9px; width:18px; height:18px; border-radius:50%; background:var(--bg); border:1px solid var(--line); top:50%; transform:translateY(-50%);}
+.ticket::after{left:auto; right:-9px}
+.ticket .row1{display:flex; align-items:baseline; gap:8px}
+.ticket .tname{font-family:"Fraunces",serif; font-size:19px; font-weight:600; letter-spacing:-.01em; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.ticket .meta{color:var(--muted); font-size:13px; margin-top:5px; display:flex; align-items:center; gap:7px; flex-wrap:wrap}
+.pill{font-size:11.5px; font-weight:700; padding:3px 9px; border-radius:999px; letter-spacing:.01em}
+.pill.pub{background:var(--accent-soft); color:var(--accent-2)}
+.pill.priv{background:var(--surface-2); color:var(--muted)}
+.empty{text-align:center; color:var(--muted); padding:40px 20px; border:1px dashed var(--line); border-radius:var(--r); margin-top:16px}
+.empty h3{font-family:"Fraunces",serif; font-weight:600; color:var(--text); margin:0 0 6px; font-size:19px}
+.lhead{padding:18px 0 6px}
+.lhead h1{font-family:"Fraunces",serif; font-size:28px; font-weight:600; margin:2px 0 0; letter-spacing:-.015em; line-height:1.08}
+.lhead .sub{color:var(--muted); font-size:13.5px; margin-top:8px; display:flex; gap:7px; align-items:center; flex-wrap:wrap}
+.avstack{display:flex; align-items:center}
+.avstack .ava{width:24px; height:24px; margin-left:-7px; box-shadow:0 0 0 2px var(--bg)}
+.avstack .ava:first-child{margin-left:0}
+.chips{display:flex; gap:8px; overflow-x:auto; padding:14px 18px 12px; margin:0 -18px; scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none; border:1.5px solid var(--line); background:transparent; color:var(--muted); border-radius:999px; padding:8px 15px; font-size:13.5px; font-weight:600; white-space:nowrap;}
+.chip.on{background:var(--text); color:var(--bg); border-color:var(--text)}
+.chip.seen{border-style:dashed}
+.chip.seen.on{background:var(--jade); color:var(--jade-ink); border-color:var(--jade)}
+.chip.add{color:var(--accent-2); border-color:var(--accent-soft)}
+.film{position:relative; background:var(--surface); border:1px solid var(--line); border-radius:var(--r); padding:15px 16px; margin-top:11px; box-shadow:var(--shadow);}
+.film.editable{cursor:pointer}
+.film.done{background:var(--jade-soft); border-color:transparent}
+.film .ft{font-family:"Fraunces",serif; font-size:18px; font-weight:600; letter-spacing:-.01em; line-height:1.2}
+.film .fn{color:var(--muted); font-size:14px; margin-top:4px}
+.film .ftags{display:flex; gap:6px; flex-wrap:wrap; margin-top:9px}
+.ftag{font-size:11.5px; font-weight:600; color:var(--muted); background:var(--surface-2); padding:3px 9px; border-radius:999px}
+.film .by{font-size:12.5px; color:var(--faint); margin-top:9px}
+.seenline{display:flex; align-items:center; gap:8px; margin-top:11px; padding-top:11px; border-top:1px solid var(--line)}
+.film.done .seenline{border-top-color:color-mix(in srgb,var(--jade) 25%, transparent)}
+.seencount{font-size:12.5px; color:var(--muted); font-weight:600; white-space:nowrap}
+.seentoggle{border:1.5px solid var(--line); background:transparent; color:var(--text); border-radius:999px; padding:7px 14px 7px 12px; font-size:13.5px; font-weight:700; display:inline-flex; align-items:center; gap:6px; margin-left:auto;}
+.seentoggle.yes{background:var(--jade); color:var(--jade-ink); border-color:var(--jade)}
+.seentoggle .bx{width:16px; height:16px; border-radius:5px; border:2px solid currentColor; display:grid; place-items:center; font-size:11px; line-height:1}
+.seentoggle.yes .bx{background:var(--jade-ink); color:var(--jade); border-color:var(--jade-ink)}
+.badge-done{font-size:11px; font-weight:800; color:var(--jade); letter-spacing:.03em}
+.fab{position:fixed; right:18px; bottom:calc(18px + env(safe-area-inset-bottom,0px)); z-index:25; background:var(--accent); color:var(--accent-ink); border:none; border-radius:999px; padding:15px 22px; font-size:15px; font-weight:700; box-shadow:0 10px 24px -8px rgba(201,118,26,.6); display:inline-flex; align-items:center; gap:8px;}
+.wrap.haspad{padding-bottom:96px}
+.ov{position:fixed; inset:0; z-index:60; background:rgba(20,10,28,.5); backdrop-filter:blur(2px); display:flex; align-items:flex-end; justify-content:center}
+.sheet{width:100%; max-width:620px; background:var(--bg-elev); border-radius:22px 22px 0 0; padding:8px 20px calc(24px + env(safe-area-inset-bottom,0px)); box-shadow:0 -10px 40px -10px rgba(0,0,0,.4); animation:up .26s cubic-bezier(.2,.7,.2,1); max-height:90svh; overflow-y:auto;}
+@keyframes up{from{transform:translateY(100%)}to{transform:none}}
+.grab{width:40px; height:4px; border-radius:99px; background:var(--line); margin:8px auto 14px}
+.sheet h2{font-family:"Fraunces",serif; font-weight:600; font-size:23px; margin:2px 0 16px; letter-spacing:-.01em}
+.seg{display:flex; background:var(--surface-2); border-radius:12px; padding:4px; margin-bottom:6px}
+.seg button{flex:1; border:none; background:transparent; color:var(--muted); font-weight:600; font-size:14px; padding:10px; border-radius:9px}
+.seg button.on{background:var(--bg-elev); color:var(--text); box-shadow:var(--shadow)}
+.hint{font-size:13px; color:var(--muted); margin:8px 2px 0; line-height:1.4}
+.err{color:var(--danger); font-size:13.5px; font-weight:600; margin:12px 2px 0}
+.tagpick{display:flex; gap:8px; flex-wrap:wrap; margin-top:4px}
+.tagpick .tp{border:1.5px solid var(--line); background:transparent; color:var(--muted); border-radius:999px; padding:7px 13px; font-size:13.5px; font-weight:600}
+.tagpick .tp.on{background:var(--accent); color:var(--accent-ink); border-color:var(--accent)}
+.codebig{font-family:"Fraunces",serif; font-weight:700; font-size:34px; letter-spacing:.14em; text-align:center; padding:16px; background:var(--surface-2); border-radius:14px; margin:4px 0}
+.taglist{display:flex; flex-direction:column; gap:8px; margin:14px 0 4px}
+.taglist .t{display:flex; align-items:center; gap:10px; background:var(--surface-2); border-radius:12px; padding:11px 14px}
+.taglist .t span{flex:1; font-weight:600; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.taglist .t button{border:none; background:transparent; color:var(--danger); font-weight:700; font-size:20px; line-height:1; padding:0 4px}
+.toast{position:fixed; left:50%; bottom:calc(84px + env(safe-area-inset-bottom,0px)); transform:translateX(-50%); z-index:80; background:var(--text); color:var(--bg); padding:11px 18px; border-radius:999px; font-size:13.5px; font-weight:600; box-shadow:var(--shadow); opacity:0; transition:opacity .2s; max-width:88%; text-align:center}
+.toast.show{opacity:1}
+.banner{background:var(--surface-2); color:var(--muted); font-size:13px; padding:10px 14px; border-radius:12px; margin-top:14px; line-height:1.4; text-align:left}
+.center-load{min-height:60svh; display:grid; place-items:center; color:var(--muted)}
+.spin{width:26px;height:26px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--accent);animation:sp .8s linear infinite;margin:0 auto 10px}
+@keyframes sp{to{transform:rotate(360deg)}}
+code{background:var(--surface-2); padding:1px 6px; border-radius:6px; font-size:.9em}
+</style>
+</head>
+<body>
+<div id="app"><div class="center-load"><div><div class="spin"></div>cargando…</div></div></div>
+<div id="toast" class="toast"></div>
+
+<!-- Librería de Supabase -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script>
+"use strict";
+/* ============================================================
+   CONFIG  ·  pega aquí tus dos datos de Supabase
+   (Settings → API Keys).  La clave pública es segura en el navegador.
+   NUNCA pongas aquí la clave secreta / service_role.
+   ============================================================ */
+var SUPABASE_URL      = "https://haviyreegwsmjouzjbqi.supabase.co";      // p. ej. https://abcd1234.supabase.co
+var SUPABASE_ANON_KEY = "sb_publishable_C_8u0SolgkKU9fEQ1adplA_wqolI97V";    // sb_publishable_...  (o la anon public)
+/* ============================================================ */
+
+var ALPHA="ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+var AVA_COLORS=["#c9761a","#2a9b76","#5b6ee1","#c0485f","#8a52c7","#2f9bb5","#c7962f","#d8577f"];
+
+var sb=null, channel=null, canWrite=true, cloudReady=false;
+var me={id:null,name:localStorage.getItem("arsoss.name")||""};
+var S={view:"loading",listId:null,filter:"all",meta:null,members:[],movies:[],seen:[],loading:true};
+var modal=null, editingId=null, _memberTried=false, _rf=null;
+
+/* ---- utils ---- */
+function $(id){return document.getElementById(id);}
+function esc(s){return (s==null?"":String(s)).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});}
+function genId(){var s="";for(var i=0;i<16;i++)s+=ALPHA[Math.floor(Math.random()*ALPHA.length)];return s.toLowerCase();}
+function genCode(){var s="";for(var i=0;i<6;i++)s+=ALPHA[Math.floor(Math.random()*ALPHA.length)];return s;}
+function initials(n){n=(n||"").trim();if(!n)return "?";var p=n.split(/\s+/);return (p.length>1?(p[0][0]+p[1][0]):n.slice(0,2)).toUpperCase();}
+function colorFor(id){id=id||"";var h=0;for(var i=0;i<id.length;i++)h=(h*31+id.charCodeAt(i))>>>0;return AVA_COLORS[h%AVA_COLORS.length];}
+function toast(t){var el=$("toast");el.textContent=t;el.classList.add("show");clearTimeout(el._t);el._t=setTimeout(function(){el.classList.remove("show");},2600);}
+function sheetErr(msg){var s=modal&&modal.querySelector(".sheet");if(!s)return;var e=s.querySelector(".err");if(!e){e=document.createElement("div");e.className="err";s.appendChild(e);}e.textContent=msg;}
+function errText(e){ if(!e)return "Error desconocido.";var m=e.message||String(e);
+  if(/Failed to fetch|NetworkError|fetch/i.test(m))return "Sin conexión con la base de datos. Revisa la URL y la clave de Supabase.";
+  if(e.code==="23505")return "Ya existía (duplicado).";
+  if(/row-level security|violates row|permission|not authorized/i.test(m))return "La base de datos rechazó la operación. Revisa que ejecutaste el SQL (políticas RLS).";
+  return "No se pudo guardar: "+m; }
+
+function myLists(){try{return JSON.parse(localStorage.getItem("arsoss.myLists")||"[]");}catch(e){return [];}}
+function saveMyList(o){var l=myLists().filter(function(x){return x.id!==o.id;});l.unshift(o);localStorage.setItem("arsoss.myLists",JSON.stringify(l.slice(0,60)));}
+function dropMyList(id){localStorage.setItem("arsoss.myLists",JSON.stringify(myLists().filter(function(x){return x.id!==id;})));}
+
+/* ---- arranque ---- */
+function boot(){
+  if(SUPABASE_URL.indexOf("PON_AQUI")>=0||SUPABASE_ANON_KEY.indexOf("PON_AQUI")>=0){ S.view="config"; render(); return; }
+  if(!window.supabase||!window.supabase.createClient){ S.view="config"; render(); return; }
+  try{ sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY); }catch(e){ S.view="config"; render(); return; }
+  me.id=localStorage.getItem("arsoss.device");
+  if(!me.id){ me.id=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():(genId()+genId()); localStorage.setItem("arsoss.device",me.id); }
+  cloudReady=true;
+  var hash=(location.hash||"").replace(/^#/,"").trim();
+  if(!me.name){ S.view="needName"; S._pendingHash=hash||null; render(); return; }
+  if(hash){ openList(hash); return; }
+  S.view="home"; render();
+}
+
+/* ---- datos ---- */
+async function fetchState(id){
+  var r;
+  try{
+    r=await Promise.all([
+      sb.from("lists").select("*").eq("id",id).maybeSingle(),
+      sb.from("members").select("*").eq("list_id",id),
+      sb.from("movies").select("*").eq("list_id",id).order("created_at",{ascending:false}),
+      sb.from("seen").select("*").eq("list_id",id)
+    ]);
+  }catch(e){ S.loading=false; toast(errText(e)); renderMaybe(); return; }
+  if(S.listId!==id)return;
+  var L=r[0].data;
+  if(r[0].error){ S.loading=false; toast(errText(r[0].error)); renderMaybe(); return; }
+  if(!L){ S.meta="__missing__"; S.loading=false; renderMaybe(); return; }
+  S.meta={name:L.name,isPublic:L.is_public,code:L.code,tags:L.tags||[],createdBy:L.created_by};
+  S.members=(r[1].data||[]).map(function(m){return {id:m.user_id,name:m.name};});
+  S.movies=(r[2].data||[]).map(function(m){return {id:m.id,title:m.title,note:m.note,tags:m.tags||[],addedBy:m.added_by,addedByName:m.added_by_name,createdAt:m.created_at};});
+  S.seen=(r[3].data||[]).map(function(s){return {id:s.movie_id+"__"+s.user_id,movieId:s.movie_id,userId:s.user_id};});
+  saveMyList({id:id,name:L.name,code:L.code,isPublic:L.is_public});
+  S.loading=false; renderMaybe(); ensureMember();
+}
+function scheduleRefetch(){ clearTimeout(_rf); _rf=setTimeout(function(){ if(S.listId)fetchState(S.listId); },250); }
+function teardown(){ if(channel){ try{sb.removeChannel(channel);}catch(e){} channel=null; } }
+
+async function openList(id){
+  teardown();
+  S.listId=id; S.view="list"; S.filter="all"; S.meta=null; S.members=[]; S.movies=[]; S.seen=[]; S.loading=true; _memberTried=false;
+  if((location.hash||"").replace(/^#/,"")!==id){ try{history.replaceState(null,"","#"+id);}catch(e){} }
+  render();
+  await fetchState(id);
+  channel=sb.channel("arsoss_"+id)
+    .on("postgres_changes",{event:"*",schema:"public",table:"lists",filter:"id=eq."+id},scheduleRefetch)
+    .on("postgres_changes",{event:"*",schema:"public",table:"members",filter:"list_id=eq."+id},scheduleRefetch)
+    .on("postgres_changes",{event:"*",schema:"public",table:"movies",filter:"list_id=eq."+id},scheduleRefetch)
+    .on("postgres_changes",{event:"*",schema:"public",table:"seen",filter:"list_id=eq."+id},scheduleRefetch)
+    .subscribe();
+}
+function ensureMember(){
+  var mine=S.members.filter(function(m){return m.id===me.id;})[0];
+  if(mine&&mine.name===me.name)return;
+  if(_memberTried&&mine)return; _memberTried=true;
+  sb.from("members").upsert({list_id:S.listId,user_id:me.id,name:me.name},{onConflict:"list_id,user_id"}).then(function(){});
+}
+
+async function createList(name,isPublic){
+  var id=genId(),code=genCode(),res,attempt;
+  for(attempt=0;attempt<5;attempt++){
+    res=await sb.from("lists").insert({id:id,name:name,is_public:isPublic,code:code,tags:[],created_by:me.id});
+    if(!res.error)break;
+    if(res.error.code==="23505"){ code=genCode(); continue; }
+    break;
+  }
+  if(res.error){ sheetErr(errText(res.error)); return; }
+  await sb.from("members").insert({list_id:id,user_id:me.id,name:me.name});
+  saveMyList({id:id,name:name,code:code,isPublic:isPublic});
+  closeModal(); openList(id);
+}
+async function joinByCode(code){
+  code=(code||"").toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,6);
+  if(code.length<4){ sheetErr("El código está incompleto."); return; }
+  var res=await sb.from("lists").select("id").eq("code",code).maybeSingle();
+  if(res.error){ sheetErr(errText(res.error)); return; }
+  if(!res.data){ sheetErr("No existe ninguna lista con ese código."); return; }
+  closeModal(); openList(res.data.id);
+}
+async function addMovie(title,note,tags){
+  title=(title||"").trim(); if(!title){ sheetErr("Falta el título."); return; }
+  var mid=genId();
+  var res=await sb.from("movies").insert({id:mid,list_id:S.listId,title:title,note:(note||"").trim(),tags:tags||[],added_by:me.id,added_by_name:me.name});
+  if(res.error){ sheetErr(errText(res.error)); return; }
+  S.movies.unshift({id:mid,title:title,note:(note||"").trim(),tags:tags||[],addedBy:me.id,addedByName:me.name,createdAt:new Date().toISOString()});
+  closeModal(); renderMaybe();
+}
+async function updateMovie(id,title,note,tags){
+  title=(title||"").trim(); if(!title){ sheetErr("Falta el título."); return; }
+  var res=await sb.from("movies").update({title:title,note:(note||"").trim(),tags:tags||[]}).eq("id",id);
+  if(res.error){ sheetErr(errText(res.error)); return; }
+  S.movies.forEach(function(m){ if(m.id===id){ m.title=title; m.note=(note||"").trim(); m.tags=tags||[]; } });
+  closeModal(); renderMaybe();
+}
+async function deleteMovie(id){
+  var res=await sb.from("movies").delete().eq("id",id);
+  if(res.error){ sheetErr(errText(res.error)); return; }
+  S.movies=S.movies.filter(function(m){return m.id!==id;});
+  S.seen=S.seen.filter(function(s){return s.movieId!==id;});
+  closeModal(); renderMaybe();
+}
+async function toggleSeen(movieId){
+  var sid=movieId+"__"+me.id, already=S.seen.filter(function(s){return s.id===sid;})[0];
+  if(already){ S.seen=S.seen.filter(function(s){return s.id!==sid;}); renderMaybe();
+    var res=await sb.from("seen").delete().eq("movie_id",movieId).eq("user_id",me.id); if(res.error)toast(errText(res.error));
+  } else { S.seen.push({id:sid,movieId:movieId,userId:me.id}); renderMaybe();
+    var res2=await sb.from("seen").insert({list_id:S.listId,movie_id:movieId,user_id:me.id}); if(res2.error&&res2.error.code!=="23505")toast(errText(res2.error));
+  }
+}
+async function addTag(name){
+  name=(name||"").trim(); if(!name)return null;
+  var tags=(S.meta&&S.meta.tags)?S.meta.tags.slice():[];
+  for(var i=0;i<tags.length;i++){ if(tags[i].toLowerCase()===name.toLowerCase())return tags[i]; }
+  if(tags.length>=24){ toast("Demasiadas etiquetas"); return null; }
+  tags.push(name);
+  var res=await sb.from("lists").update({tags:tags}).eq("id",S.listId);
+  if(res.error){ toast(errText(res.error)); return null; }
+  if(S.meta)S.meta.tags=tags; return name;
+}
+async function deleteTag(tag){
+  var tags=((S.meta&&S.meta.tags)||[]).filter(function(t){return t!==tag;});
+  var res=await sb.from("lists").update({tags:tags}).eq("id",S.listId);
+  if(res.error){ toast(errText(res.error)); return; }
+  if(S.meta)S.meta.tags=tags;
+  for(var i=0;i<S.movies.length;i++){ var m=S.movies[i];
+    if((m.tags||[]).indexOf(tag)>=0){ var nt=m.tags.filter(function(t){return t!==tag;}); m.tags=nt;
+      sb.from("movies").update({tags:nt}).eq("id",m.id).then(function(){}); } }
+  if(S.filter===tag)S.filter="all";
+}
+function leaveList(){ dropMyList(S.listId); teardown(); S.listId=null; try{history.replaceState(null,"","#");}catch(e){} S.view="home"; render(); }
+
+/* ---- derivados ---- */
+function seenSetFor(movieId){ var set={}; S.seen.forEach(function(s){ if(s.movieId===movieId)set[s.userId]=1; }); return set; }
+function isDone(movieId){ if(S.members.length===0)return false; var set=seenSetFor(movieId); return S.members.every(function(m){return set[m.id];}); }
+
+/* ===================== render ===================== */
+function render(){
+  var app=$("app");
+  if(S.view==="loading"){ app.innerHTML='<div class="center-load"><div><div class="spin"></div>cargando…</div></div>'; return; }
+  if(S.view==="config"){ app.innerHTML=viewConfig(); return; }
+  if(S.view==="needName"){ app.innerHTML=viewName(); bindName(); return; }
+  if(S.view==="home"){ app.innerHTML=viewHome(); return; }
+  if(S.view==="list"){ app.innerHTML=viewList(); return; }
+}
+function renderMaybe(){ if(S.view==="list"&&!modal)render(); }
+
+function viewConfig(){
+  return '<div class="screen"><div class="hero"><p class="mark">arsoss<span class="dot">.</span></p>'
+    +'<p class="tag">Falta conectar la base de datos.</p>'
+    +'<div class="banner" style="max-width:440px;margin-top:20px">Abre <code>index.html</code> y, en el bloque <b>CONFIG</b> de arriba, pega tu <b>Project URL</b> y tu <b>clave pública</b> de Supabase (Settings → API Keys). Luego vuelve a subir el archivo.</div></div></div>';
+}
+function viewName(){
+  return '<div class="screen"><div class="hero"><div class="bulbs"><i></i><i></i><i></i><i></i><i></i></div>'
+    +'<h1 class="mark">arsoss<span class="dot">.</span></h1>'
+    +'<p class="tag">Listas de pelis que montas con tus amigos. Cada uno añade lo que recomienda.</p>'
+    +'<div class="namebox"><input id="nm" class="field" placeholder="¿cómo te llamas?" autocomplete="off" maxlength="24" style="text-align:center">'
+    +'<button class="btn block" data-act="nameGo">Entrar</button></div></div>'
+    +'<div class="foot">tu nombre se ve junto a las pelis que marcas como vistas</div></div>';
+}
+function bindName(){ var i=$("nm"); if(!i)return; i.focus(); i.onkeydown=function(e){ if(e.key==="Enter")H.nameGo(); }; }
+function meChip(){ return '<button class="me-chip" data-act="profile"><span class="ava" style="background:'+colorFor(me.id)+'">'+esc(initials(me.name))+'</span>'+esc(me.name)+'</button>'; }
+function topbar(left){ return '<div class="topbar"><div class="wrap"><div class="inner">'+left+'<span class="spacer"></span>'+meChip()+'</div></div></div>'; }
+
+function viewHome(){
+  var lists=myLists(),cards="";
+  if(lists.length===0){ cards='<div class="empty"><h3>Todavía no hay listas</h3><p>Crea una lista y comparte el enlace o el código, o únete a la de un amigo.</p></div>'; }
+  else { lists.forEach(function(l){
+    cards+='<button class="ticket" data-act="open" data-arg="'+esc(l.id)+'"><div class="row1"><span class="tname">'+esc(l.name)+'</span>'
+      +'<span class="pill '+(l.isPublic?'pub':'priv')+'">'+(l.isPublic?'pública':'privada')+'</span></div>'
+      +'<div class="meta">'+(l.isPublic?'enlace para compartir':('código '+esc(l.code||'')))+'</div></button>';
+  }); }
+  return topbar('<span class="brand">arsoss<span class="dot">.</span></span>')
+    +'<div class="wrap"><h2 class="sec-title">Tus listas</h2><p class="sec-sub">Watchlists compartidas con tu gente.</p>'
+    +'<div class="actions"><button class="btn" data-act="modalCreate">Crear lista</button><button class="btn ghost" data-act="modalJoin">Unirse</button></div>'
+    +cards+'</div>';
+}
+
+function viewList(){
+  if(S.meta==="__missing__"){
+    return topbar('<button class="iconbtn" data-act="home">‹</button>')
+      +'<div class="wrap"><div class="empty" style="margin-top:40px"><h3>Lista no encontrada</h3><p>Puede que el enlace o el código no sean correctos.</p><button class="btn" style="margin-top:14px" data-act="home">Volver</button></div></div>';
+  }
+  if(S.loading||!S.meta){ return topbar('<button class="iconbtn" data-act="home">‹</button>')+'<div class="center-load"><div><div class="spin"></div>abriendo lista…</div></div>'; }
+  var m=S.meta,tags=m.tags||[],av="";
+  S.members.slice(0,6).forEach(function(mm){ av+='<span class="ava" style="background:'+colorFor(mm.id)+'" title="'+esc(mm.name)+'">'+esc(initials(mm.name))+'</span>'; });
+  var mc=S.members.length;
+  var chips='<button class="chip '+(S.filter==="all"?"on":"")+'" data-act="filter" data-arg="all">Todas</button>';
+  tags.forEach(function(t){ chips+='<button class="chip '+(S.filter===t?"on":"")+'" data-act="filter" data-arg="'+esc(t)+'">'+esc(t)+'</button>'; });
+  chips+='<button class="chip seen '+(S.filter==="__done__"?"on":"")+'" data-act="filter" data-arg="__done__">Visto por todos</button>';
+  chips+='<button class="chip add" data-act="modalTags">⋯ etiquetas</button>';
+  var active=[],done=[];
+  S.movies.forEach(function(f){ (isDone(f.id)?done:active).push(f); });
+  var show=S.filter==="__done__"?done:(S.filter==="all"?active:active.filter(function(f){return (f.tags||[]).indexOf(S.filter)>=0;}));
+  var body="";
+  if(show.length===0){
+    var msg=S.filter==="__done__"?"Aún no hay ninguna peli vista por todos. Cuando todos marquen una, aparecerá aquí.":(S.movies.length===0?"Esta lista está vacía. Añade la primera recomendación.":"Nada en este filtro todavía.");
+    body='<div class="empty" style="margin-top:14px"><p style="margin:0">'+esc(msg)+'</p></div>';
+  } else { show.forEach(function(f){ body+=filmCard(f); }); }
+  return topbar('<button class="iconbtn" data-act="home">‹</button>')
+    +'<div class="wrap haspad"><div class="lhead"><div style="display:flex;align-items:center;gap:8px">'
+    +'<span class="pill '+(m.isPublic?'pub':'priv')+'">'+(m.isPublic?'pública':'privada')+'</span>'
+    +'<button class="iconbtn" style="width:32px;height:32px;font-size:15px;margin-left:auto" title="Compartir" data-act="modalShare">↗</button>'
+    +'<button class="iconbtn" style="width:32px;height:32px;font-size:15px" title="Salir" data-act="leave">⋯</button></div>'
+    +'<h1>'+esc(m.name)+'</h1>'
+    +'<div class="sub"><span class="avstack">'+av+'</span><span>'+mc+(mc===1?" persona":" personas")+'</span>'
+    +'<span>·</span><span>'+S.movies.length+" "+(S.movies.length===1?"peli":"pelis")+'</span></div></div>'
+    +'<div class="chips">'+chips+'</div>'+body+'</div>'
+    +'<button class="fab" data-act="modalAdd">＋ Añadir peli</button>';
+}
+function filmCard(f){
+  var set=seenSetFor(f.id),done=isDone(f.id),iSaw=!!set[me.id],av="";
+  S.members.forEach(function(mm){ if(set[mm.id])av+='<span class="ava" style="width:22px;height:22px;background:'+colorFor(mm.id)+'" title="'+esc(mm.name)+'">'+esc(initials(mm.name))+'</span>'; });
+  var seenN=0; S.members.forEach(function(mm){ if(set[mm.id])seenN++; });
+  var tagsH=""; (f.tags||[]).forEach(function(t){ tagsH+='<span class="ftag">'+esc(t)+'</span>'; });
+  var toggle='<button class="seentoggle '+(iSaw?"yes":"")+'" data-act="seen" data-arg="'+esc(f.id)+'"><span class="bx">'+(iSaw?"✓":"")+'</span>'+(iSaw?"Visto":"Marcar visto")+'</button>';
+  return '<div class="film '+(done?"done":"")+' editable" data-act="editMovie" data-arg="'+esc(f.id)+'">'
+    +'<div class="ft">'+esc(f.title)+(done?' <span class="badge-done">· visto por todos</span>':'')+'</div>'
+    +(f.note?'<div class="fn">'+esc(f.note)+'</div>':'')
+    +(tagsH?'<div class="ftags">'+tagsH+'</div>':'')
+    +'<div class="seenline"><span class="avstack">'+av+'</span><span class="seencount">'+seenN+'/'+S.members.length+' vistos</span>'+toggle+'</div>'
+    +(f.addedByName?'<div class="by">recomendada por '+esc(f.addedByName)+'</div>':'')+'</div>';
+}
+
+/* ===================== modales ===================== */
+function openModal(html){ closeModal(); var d=document.createElement("div"); d.className="ov";
+  d.innerHTML='<div class="sheet"><div class="grab"></div>'+html+'</div>';
+  d.addEventListener("click",function(e){ if(e.target===d)closeModal(); });
+  document.body.appendChild(d); modal=d; }
+function closeModal(){ if(modal){modal.remove();modal=null;editingId=null;} }
+function tagPickHtml(selected){
+  selected=selected||[]; var tags=(S.meta&&S.meta.tags)||[];
+  var picks=tags.map(function(t){ var on=selected.indexOf(t)>=0; return '<button type="button" class="tp'+(on?" on":"")+'" data-act="togglePick" data-arg="'+esc(t)+'">'+esc(t)+'</button>'; }).join("");
+  return '<label class="lbl" style="margin-top:14px">Etiquetas <span class="opt">(opcional · puedes marcar varias)</span></label>'
+    +'<div class="tagpick" id="mtags">'+(picks||'<span class="hint" style="margin:0">Aún no hay etiquetas. Crea una abajo.</span>')+'</div>'
+    +'<div style="display:flex;gap:8px;margin-top:10px"><input id="newtag" class="field" placeholder="nueva etiqueta" maxlength="22" style="flex:1"><button class="btn line sm" data-act="pickNewTag">Crear</button></div>';
+}
+function selectedPicks(){ return [].map.call((modal||document).querySelectorAll(".tp.on"),function(x){return x.getAttribute("data-arg");}); }
+
+/* ===================== handlers ===================== */
+var H={
+  open:function(id){ openList(id); },
+  home:function(){ teardown(); S.listId=null; try{history.replaceState(null,"","#");}catch(e){} S.view="home"; render(); },
+  leave:function(){ if(confirm("¿Salir de esta lista? Podrás volver con el código o el enlace.")) leaveList(); },
+  filter:function(f){ S.filter=f; render(); },
+  seen:function(id){ toggleSeen(id); },
+  nameGo:function(){ var i=$("nm"); if(!i)return; var v=i.value.trim(); if(!v){i.focus();return;} me.name=v; localStorage.setItem("arsoss.name",v); var h=S._pendingHash; S._pendingHash=null; if(h){openList(h);}else{S.view="home";render();} },
+  profile:function(){ openModal('<h2>Tu nombre</h2><input id="pn" class="field" value="'+esc(me.name)+'" maxlength="24"><p class="hint">Así te ven los demás en las listas.</p><button class="btn block" style="margin-top:16px" data-act="saveName">Guardar</button>'); setTimeout(function(){var e=$("pn");if(e)e.focus();},50); },
+  saveName:function(){ var v=$("pn").value.trim(); if(!v)return; me.name=v; localStorage.setItem("arsoss.name",v); if(S.view==="list"){_memberTried=false;ensureMember();} closeModal(); render(); toast("Nombre actualizado"); },
+  modalCreate:function(){
+    openModal('<h2>Nueva lista</h2><label class="lbl">Nombre</label><input id="cn" class="field" placeholder="p. ej. Noches de peli" maxlength="40">'
+      +'<label class="lbl" style="margin-top:16px">Privacidad</label>'
+      +'<div class="seg" id="cseg"><button class="on" data-act="segPick" data-arg="pub">Pública</button><button data-act="segPick" data-arg="priv">Privada</button></div>'
+      +'<p class="hint" id="chint">Pública: cualquiera con el enlace puede unirse.</p>'
+      +'<button class="btn block" style="margin-top:18px" data-act="doCreate">Crear lista</button>');
+    setTimeout(function(){var e=$("cn");if(e)e.focus();},50);
+  },
+  segPick:function(v,el){ var seg=el.parentNode; [].forEach.call(seg.children,function(x){x.classList.remove("on");}); el.classList.add("on");
+    var h=$("chint"); if(h)h.textContent=v==="pub"?"Pública: cualquiera con el enlace puede unirse.":"Privada: solo se entra con el código de 6 caracteres."; },
+  doCreate:function(){ var n=$("cn").value.trim(); if(!n){sheetErr("Ponle un nombre.");return;} var pub=modal.querySelector("#cseg .on").getAttribute("data-arg")==="pub"; createList(n,pub); },
+  modalJoin:function(){
+    openModal('<h2>Unirse a una lista</h2><label class="lbl">Código de 6 caracteres</label>'
+      +'<input id="jc" class="field" placeholder="p. ej. 7KQ2MX" maxlength="6" autocapitalize="characters" style="text-transform:uppercase;letter-spacing:.14em;font-weight:600;text-align:center;font-size:20px">'
+      +'<p class="hint">¿Es pública? Entonces te basta con abrir el enlace que te pasen.</p>'
+      +'<button class="btn block" style="margin-top:16px" data-act="doJoin">Unirse</button>');
+    setTimeout(function(){var e=$("jc");if(e){e.focus();e.oninput=function(){e.value=e.value.toUpperCase();};}},50);
+  },
+  doJoin:function(){ joinByCode($("jc").value); },
+  modalShare:function(){
+    var m=S.meta,url=location.origin+location.pathname+"#"+S.listId,inner;
+    if(m.isPublic){ inner='<p class="hint" style="margin:0 0 10px">Comparte este enlace. Quien lo abra entra directo.</p>'
+      +'<input class="field" readonly value="'+esc(url)+'" onclick="this.select()">'
+      +'<button class="btn block" style="margin-top:12px" data-act="copy" data-arg="'+esc(url)+'">Copiar enlace</button>'
+      +'<p class="hint" style="margin-top:14px">También pueden entrar con el código <b>'+esc(m.code)+'</b>.</p>'; }
+    else { inner='<p class="hint" style="margin:0 0 6px">Lista privada. Pásales este código y que lo metan en “Unirse”.</p>'
+      +'<div class="codebig">'+esc(m.code)+'</div><button class="btn block" data-act="copy" data-arg="'+esc(m.code)+'">Copiar código</button>'; }
+    openModal('<h2>Compartir</h2>'+inner);
+  },
+  copy:function(t){ try{navigator.clipboard.writeText(t);toast("Copiado");}catch(e){toast("No se pudo copiar");} },
+  modalTags:function(){
+    var tags=(S.meta&&S.meta.tags)||[];
+    var list=tags.length?('<div class="taglist">'+tags.map(function(t){return '<div class="t"><span>'+esc(t)+'</span><button data-act="delTag" data-arg="'+esc(t)+'" title="Borrar">×</button></div>';}).join("")+'</div>'):'<p class="hint" style="margin:10px 2px">Todavía no hay etiquetas.</p>';
+    openModal('<h2>Etiquetas</h2><p class="hint" style="margin-top:0">Sirven para dividir la lista y filtrar. Son opcionales. Al borrar una, se quita de las pelis que la tenían.</p>'
+      +'<div style="display:flex;gap:8px;margin-top:14px"><input id="ntg" class="field" placeholder="nueva etiqueta" maxlength="22" style="flex:1"><button class="btn sm" data-act="addTagManage">Añadir</button></div>'+list);
+  },
+  addTagManage:function(){ var i=$("ntg"); var v=i.value.trim(); if(!v)return; addTag(v).then(function(n){ if(n)H.modalTags(); }); },
+  delTag:function(t){ if(confirm('¿Borrar la etiqueta “'+t+'”?')) deleteTag(t).then(function(){ H.modalTags(); }); },
+  modalAdd:function(){
+    openModal('<h2>Añadir peli</h2><label class="lbl">Título</label><input id="mt" class="field" placeholder="título de la película" maxlength="90">'
+      +'<label class="lbl" style="margin-top:14px">Por qué la recomiendas <span class="opt">(opcional)</span></label>'
+      +'<input id="mn" class="field" placeholder="una frase, dónde verla…" maxlength="160">'
+      +tagPickHtml([])+'<button class="btn block" style="margin-top:18px" data-act="doAdd">Añadir a la lista</button>');
+    setTimeout(function(){var e=$("mt");if(e)e.focus();},50);
+  },
+  doAdd:function(){ addMovie($("mt").value,$("mn").value,selectedPicks()); },
+  editMovie:function(id){
+    var f=S.movies.filter(function(m){return m.id===id;})[0]; if(!f)return; editingId=id;
+    openModal('<h2>Editar peli</h2><label class="lbl">Título</label><input id="mt" class="field" value="'+esc(f.title)+'" maxlength="90">'
+      +'<label class="lbl" style="margin-top:14px">Por qué la recomiendas <span class="opt">(opcional)</span></label>'
+      +'<input id="mn" class="field" value="'+esc(f.note||"")+'" maxlength="160">'
+      +tagPickHtml(f.tags||[])
+      +'<button class="btn block" style="margin-top:18px" data-act="doUpdate">Guardar</button>'
+      +'<button class="btn danger block" style="margin-top:10px" data-act="doDelete">Eliminar peli</button>');
+  },
+  doUpdate:function(){ if(!editingId)return; updateMovie(editingId,$("mt").value,$("mn").value,selectedPicks()); },
+  doDelete:function(){ if(!editingId)return; var id=editingId; if(confirm("¿Eliminar esta peli de la lista?")) deleteMovie(id); },
+  togglePick:function(v,el){ el.classList.toggle("on"); },
+  pickNewTag:function(){ var i=$("newtag"); var v=i.value.trim(); if(!v)return; addTag(v).then(function(name){ if(!name)return;
+    var box=$("mtags"); if(box.querySelector(".hint"))box.innerHTML="";
+    var ex=null; [].forEach.call(box.querySelectorAll(".tp"),function(b){ if(b.getAttribute("data-arg")===name)ex=b; });
+    if(ex)ex.classList.add("on"); else { var b=document.createElement("button"); b.type="button"; b.className="tp on"; b.setAttribute("data-act","togglePick"); b.setAttribute("data-arg",name); b.textContent=name; box.appendChild(b); }
+    i.value=""; }); }
+};
+document.addEventListener("click",function(e){
+  var el=e.target.closest("[data-act]"); if(!el)return;
+  var act=el.getAttribute("data-act"), arg=el.getAttribute("data-arg");
+  if(H[act]){ e.preventDefault(); H[act](arg,el,e); }
+});
+window.addEventListener("hashchange",function(){
+  if(!cloudReady)return; var h=(location.hash||"").replace(/^#/,"").trim();
+  if(h&&h!==S.listId){ openList(h); } else if(!h&&S.view==="list"){ H.home(); }
+});
+
+boot();
+</script>
+</body>
+</html>
