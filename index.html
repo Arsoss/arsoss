@@ -232,8 +232,9 @@ var ALPHA="ABCDEFGHJKMNPQRSTUVWXYZ23456789";
 var AVA_COLORS=["#c9761a","#2a9b76","#5b6ee1","#c0485f","#8a52c7","#2f9bb5","#c7962f","#d8577f"];
 var sb=null, channel=null, cloudReady=false;
 var me={id:null,name:""};
-var S={view:"loading",authMode:"in",_email:"",listId:null,filter:"all",meta:null,members:[],movies:[],mrat:{},loading:true,_pendingHash:null,homeLists:null,homeLoading:false,punTab:"pelis",punSort:"nota_desc",myMovies:null,myActors:null,punLoading:false,punDetail:null};
+var S={view:"loading",authMode:"in",_email:"",listId:null,filter:"all",meta:null,members:[],movies:[],mrat:{},loading:true,_pendingHash:null,homeLists:null,homeLoading:false,punTab:"pelis",punSort:"nota_desc",myMovies:null,myActors:null,punLoading:false,punDetail:null,profile:null,following:[],followers:[],friends:[],userQ:"",viewUserData:null,followList:null,profNames:{}};
 var modal=null, editingId=null, _memberTried=false, _rf=null, _rateVal=0;
+var _profileBack="home", _userBack="me", _unameTimer=null;
 var _rateSave=null, _rateRemove=null, _rateNoNote=false;
 var _pickPoster=null, _pickYear=null, _pickTmdbId=null, _tmdbTimer=null, _tmdbResults=[];
 var _bq="", _btimer=null, _mv=null, _pf=null, _personBack=null, _movieBack="buscar";
@@ -306,15 +307,108 @@ async function boot(){
   if(!session){ S.view="login"; render(); return; }
   afterAuth(session);
 }
-function afterAuth(session){
+async function afterAuth(session){
   me.id=session.user.id;
   var nm=(session.user.user_metadata&&session.user.user_metadata.name)||localStorage.getItem("arsoss.name")||"";
-  me.name=nm; cloudReady=true;
+  me.name=nm;
+  try{ var pr=await sb.from("profiles").select("*").eq("user_id",me.id).maybeSingle(); S.profile=(pr&&pr.data)?pr.data:null; }catch(e){ S.profile=null; }
+  if(S.profile&&S.profile.name&&!me.name)me.name=S.profile.name;
+  if(S.profile&&S.profile.username)me.username=S.profile.username;
+  cloudReady=true;
   var hash=(location.hash||"").replace(/^#/,"").trim();
-  if(!nm){ S.view="needName"; S._pendingHash=hash||null; render(); return; }
-  localStorage.setItem("arsoss.name",nm);
+  if(!me.name){ S.view="needName"; S._pendingHash=hash||null; render(); return; }
+  localStorage.setItem("arsoss.name",me.name);
+  if(!me.username){ S.view="needUsername"; S._pendingHash=hash||null; render(); return; }
+  loadSocial();
   if(hash){ openList(hash); return; }
   S.view="home"; render(); loadMyLists();
+}
+
+/* ---- social (seguir / amigos / usuarios) ---- */
+function normUser(u){ return (u||"").toLowerCase().replace(/[^a-z0-9_]/g,"").slice(0,20); }
+function recomputeFriends(){ var fs={}; S.following.forEach(function(id){fs[id]=1;}); S.friends=S.followers.filter(function(id){return fs[id];}); }
+async function loadSocial(){
+  if(!sb||!me.id)return;
+  try{ var out=await Promise.all([ sb.from("follows").select("following_id").eq("follower_id",me.id), sb.from("follows").select("follower_id").eq("following_id",me.id) ]);
+    S.following=((out[0]&&out[0].data)||[]).map(function(x){return x.following_id;});
+    S.followers=((out[1]&&out[1].data)||[]).map(function(x){return x.follower_id;});
+    recomputeFriends();
+  }catch(e){}
+  if(S.view==="me")render();
+}
+async function loadProfileNames(ids){
+  ids=(ids||[]).filter(function(id){return id&&!S.profNames[id];});
+  if(!ids.length)return;
+  try{ var r=await sb.from("profiles").select("user_id,username,name").in("user_id",ids); (r.data||[]).forEach(function(p){ S.profNames[p.user_id]={username:p.username,name:p.name}; }); }catch(e){}
+}
+async function checkUsername(u){
+  var el=$("ustatus"); if(!el)return; u=normUser(u);
+  if(u.length<3){ el.textContent=u.length?"mínimo 3 caracteres":""; el.style.color="var(--muted)"; return; }
+  el.textContent="comprobando…"; el.style.color="var(--muted)";
+  try{ var r=await sb.from("profiles").select("user_id").eq("username",u).maybeSingle(); if($("un")&&normUser($("un").value)!==u)return;
+    if(r.data&&r.data.user_id!==me.id){ el.textContent="✗ @"+u+" ya está cogido"; el.style.color="var(--danger)"; }
+    else { el.textContent="✓ @"+u+" disponible"; el.style.color="var(--jade)"; }
+  }catch(e){ el.textContent=""; }
+}
+async function doFollow(uid){ if(S.following.indexOf(uid)<0)S.following.push(uid); recomputeFriends(); render(); var res=await sb.from("follows").upsert({follower_id:me.id,following_id:uid},{onConflict:"follower_id,following_id"}); if(res.error)toast(errText(res.error)); }
+async function doUnfollow(uid){ S.following=S.following.filter(function(x){return x!==uid;}); recomputeFriends(); render(); var res=await sb.from("follows").delete().eq("follower_id",me.id).eq("following_id",uid); if(res.error)toast(errText(res.error)); }
+function avatarBig(uid,name){ return '<div class="cface" style="width:82px;height:82px;font-size:26px;background:'+colorFor(uid)+';color:#fff">'+esc(initials(name))+'</div>'; }
+function avatarSm(uid,name){ return '<div class="cface" style="background:'+colorFor(uid)+';color:#fff">'+esc(initials(name))+'</div>'; }
+function userRow(p){
+  var following=S.following.indexOf(p.user_id)>=0, friend=S.friends.indexOf(p.user_id)>=0;
+  var btn='<button class="btn sm'+(following?" line":"")+'" data-act="'+(following?"unfollow":"follow")+'" data-arg="'+esc(p.user_id)+'">'+(following?"Siguiendo":"Seguir")+'</button>';
+  return '<div class="credit" data-act="openUser" data-arg="'+esc(p.user_id)+'">'+avatarSm(p.user_id,p.name)+'<div class="cr-info"><div class="cr-name">'+esc(p.name||"(usuario)")+(friend?' <span class="sep">·</span> <span style="color:var(--jade);font-weight:700;font-size:11.5px">amigos</span>':'')+(isFounder(p.user_id)?founderTag():'')+'</div><div class="cr-role">@'+esc(p.username||"")+'</div></div>'+btn+'</div>';
+}
+/* vistas */
+function viewUsername(){
+  return '<div class="screen"><div class="hero">'+bulbs()+'<h1 class="mark">arsoss<span class="dot">.</span></h1><p class="tag">Elige tu nombre de usuario. Es con lo que te encontrarán tus amigos.</p>'
+    +'<div class="namebox"><div style="display:flex;align-items:center;gap:2px;background:var(--bg-elev);border:1.5px solid var(--line);border-radius:11px;padding:0 15px"><span style="color:var(--muted);font-weight:700">@</span><input id="un" class="field" style="border:none;padding-left:4px;background:none" placeholder="usuario" autocapitalize="off" autocomplete="off" maxlength="20"></div><div id="ustatus" style="font-size:13px;font-weight:600;min-height:18px;margin:4px 0 0 4px;color:var(--muted)"></div><button class="btn block" data-act="doUsername">Continuar</button></div></div><div class="foot">solo letras, números y guión bajo</div></div>';
+}
+function bindUsername(){ var e=$("un"); if(!e)return; e.focus(); e.oninput=function(){ e.value=normUser(e.value); clearTimeout(_unameTimer); _unameTimer=setTimeout(function(){ checkUsername(e.value); },350); }; }
+function viewMe(){
+  var back='<button class="iconbtn" data-act="meBack">‹</button>';
+  var fid=isFounder(me.id)?('<p class="hint" style="margin-top:18px">ID de tu cuenta <span class="opt">(fundador)</span>:</p><div style="display:flex;gap:8px;margin-top:6px"><input class="field" readonly value="'+esc(me.id)+'" onclick="this.select()" style="flex:1;font-size:12.5px"><button class="btn line sm" data-act="copy" data-arg="'+esc(me.id)+'">Copiar</button></div>'):"";
+  var stat='border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--surface);color:inherit;font:inherit;cursor:pointer;flex:1;text-align:center';
+  return topbar(back)+'<div class="wrap"><div class="pf-top">'+avatarBig(me.id,me.name)+'<div style="min-width:0"><div class="pf-name">'+esc(me.name)+(isFounder(me.id)?founderTag():"")+'</div><div class="pf-dep">@'+esc(me.username||"")+'</div></div></div>'
+    +'<div style="display:flex;gap:10px;margin-top:14px"><button style="'+stat+'" data-act="followersList"><b style="font-size:17px">'+S.followers.length+'</b> <span style="color:var(--muted)">seguidores</span></button><button style="'+stat+'" data-act="followingList"><b style="font-size:17px">'+S.following.length+'</b> <span style="color:var(--muted)">siguiendo</span></button></div>'
+    +'<button class="btn block" style="margin-top:16px" data-act="userSearch">Buscar usuarios</button><button class="btn line block" style="margin-top:10px" data-act="editName">Editar nombre</button><button class="btn line block" style="margin-top:10px" data-act="privacyInfo">Privacidad: solo amigos</button><button class="btn line block" style="margin-top:10px" data-act="logout">Cerrar sesión</button>'+fid
+    +'<p class="soon" style="margin-top:20px">“Amigo” = os seguís los dos. Tus notas las ven tus amigos (y, dentro de una lista, sus miembros).</p></div>';
+}
+function viewUserSearch(){ return topbar('<button class="iconbtn" data-act="toMe">‹</button>')+'<div class="wrap"><div class="bsearch"><span style="color:var(--muted);font-weight:700">@</span><input id="uq" placeholder="buscar por usuario…" value="'+esc(S.userQ)+'" autocomplete="off" autocapitalize="off"></div><div id="uresults" style="margin-top:12px"></div></div>'; }
+function bindUserSearch(){ var e=$("uq"); if(!e)return; e.focus(); e.oninput=function(){ S.userQ=e.value; clearTimeout(_unameTimer); _unameTimer=setTimeout(function(){ runUserSearch(e.value); },300); }; if(S.userQ&&S.userQ.trim().length>=1)runUserSearch(S.userQ); }
+async function runUserSearch(q){
+  var box=$("uresults"); if(!box)return; q=normUser(q); if(q.length<1){ box.innerHTML=""; return; }
+  box.innerHTML='<div class="tmdbloading">buscando…</div>';
+  try{ var r=await sb.from("profiles").select("user_id,username,name").ilike("username","%"+q+"%").limit(20); if($("uresults")!==box)return;
+    var res=(r.data||[]).filter(function(p){return p.user_id!==me.id&&p.username;});
+    box.innerHTML=res.length?res.map(function(p){return userRow(p);}).join(""):'<div class="tmdbloading">sin resultados</div>';
+  }catch(e){ box.innerHTML='<div class="tmdbloading">no se pudo buscar</div>'; }
+}
+function openUserProfile(uid){ S.viewUserData={id:uid,loading:true}; S.view="userProfile"; render(); loadUserProfile(uid); }
+async function loadUserProfile(uid){
+  try{ var out=await Promise.all([ sb.from("profiles").select("*").eq("user_id",uid).maybeSingle(), sb.from("follows").select("following_id").eq("follower_id",uid), sb.from("follows").select("follower_id").eq("following_id",uid) ]);
+    if(!S.viewUserData||S.viewUserData.id!==uid)return;
+    S.viewUserData={id:uid,loading:false,profile:(out[0]&&out[0].data)||null,following:((out[1]&&out[1].data)||[]).length,followers:((out[2]&&out[2].data)||[]).length};
+    render();
+  }catch(e){ if(S.viewUserData&&S.viewUserData.id===uid){ S.viewUserData={id:uid,loading:false,error:true}; render(); } }
+}
+function viewUser(){
+  var back='<button class="iconbtn" data-act="upBack">‹</button>'; var u=S.viewUserData;
+  if(!u||u.loading) return topbar(back)+'<div class="center-load"><div><div class="spin"></div>cargando…</div></div>';
+  if(u.error||!u.profile) return topbar(back)+'<div class="wrap"><div class="empty" style="margin-top:30px">No se pudo cargar el perfil.</div></div>';
+  var p=u.profile; var following=S.following.indexOf(u.id)>=0, friend=S.friends.indexOf(u.id)>=0, followsMe=S.followers.indexOf(u.id)>=0;
+  var rel=friend?'<div class="pf-dep" style="color:var(--jade)">· sois amigos</div>':(followsMe?'<div class="pf-dep">· te sigue</div>':'');
+  return topbar(back)+'<div class="wrap"><div class="pf-top">'+avatarBig(u.id,p.name)+'<div style="min-width:0"><div class="pf-name">'+esc(p.name||"")+(isFounder(u.id)?founderTag():"")+'</div><div class="pf-dep">@'+esc(p.username||"")+'</div>'+rel+'</div></div>'
+    +'<div style="display:flex;gap:10px;margin-top:14px"><div style="flex:1;border:1px solid var(--line);border-radius:12px;padding:12px;text-align:center"><b style="font-size:17px">'+u.followers+'</b> <span style="color:var(--muted)">seguidores</span></div><div style="flex:1;border:1px solid var(--line);border-radius:12px;padding:12px;text-align:center"><b style="font-size:17px">'+u.following+'</b> <span style="color:var(--muted)">siguiendo</span></div></div>'
+    +'<button class="btn'+(following?" line":"")+' block" style="margin-top:16px" data-act="'+(following?"unfollow":"follow")+'" data-arg="'+esc(u.id)+'">'+(following?"Dejar de seguir":"Seguir")+'</button>'
+    +(friend?'<p class="soon">Sois amigos: ya veis vuestras notas mutuamente.</p>':(following?'<p class="soon">Cuando '+esc((p.name||"").split(" ")[0])+' te siga de vuelta, seréis amigos.</p>':''))+'</div>';
+}
+function openFollowList(kind){ S.followList={kind:kind,ids:(kind==="followers"?S.followers.slice():S.following.slice())}; S.view="followList"; render(); loadProfileNames(S.followList.ids).then(function(){ if(S.view==="followList")render(); }); }
+function viewFollowList(){
+  var back='<button class="iconbtn" data-act="toMe">‹</button>'; var fl=S.followList||{kind:"followers",ids:[]};
+  var title=fl.kind==="followers"?"Seguidores":"Siguiendo";
+  var rows=(fl.ids||[]).map(function(id){ var p=S.profNames[id]||{}; return userRow({user_id:id,username:p.username||"",name:p.name||"(usuario)"}); }).join("");
+  return topbar(back)+'<div class="wrap"><h2 class="sec-title" style="margin-top:16px">'+title+'</h2>'+((fl.ids&&fl.ids.length)?rows:'<div class="empty" style="margin-top:14px"><p style="margin:0">'+(fl.kind==="followers"?"Nadie te sigue todavía.":"No sigues a nadie todavía.")+'</p></div>')+'</div>';
 }
 async function loadMyLists(){
   if(!sb||!me.id)return;
@@ -545,7 +639,7 @@ function viewPunDetail(){
     var sum2=0;mv.forEach(function(m){sum2+=m.rating;}); var avg2=mv.length?sum2/mv.length:0;
     mv.sort(function(a,b){return b.rating-a.rating;});
     var rows2=mv.map(function(m){ var yr=m.year?(' <span class="fyear">('+esc(m.year)+')</span>'):''; return '<button class="credit" data-act="openPunMovie" data-arg="'+esc(m.tmdb_id)+'">'+posterBox(m.poster)+'<div class="cr-info"><div class="cr-name">'+esc(m.title||"")+yr+'</div></div><span class="cscore">'+fmtRating(m.rating)+' '+starsDisplay(m.rating)+'</span></button>'; }).join("");
-    return topbar(back)+'<div class="wrap"><div class="pf-top">'+faceBox(d.profile,d.name)+'<div><div class="pf-name">'+esc(d.name)+'</div><div class="pf-dep">Tu media de sus pelis · <span class="ratechip">★ '+fmtAvg(avg2)+'</span></div></div></div><button class="btn line sm" style="margin-top:10px" data-act="openPerson" data-arg="'+esc(d.id)+'">Ver ficha completa y filmografía</button><div class="mv-sec">Sus pelis que has puntuado</div>'+rows2+'<div style="height:14px"></div></div>';
+    return topbar(back)+'<div class="wrap"><div class="pf-top">'+faceBox(d.profile,d.name)+'<div><div class="pf-name">'+esc(d.name)+'</div><div class="pf-dep">Tu media de sus pelis · <span class="ratechip">★ '+fmtAvg(avg2)+'</span></div></div></div><button class="btn line sm" style="margin-top:10px" data-act="openPersonDir" data-arg="'+esc(d.id)+'">Ver ficha completa y filmografía</button><div class="mv-sec">Sus pelis que has puntuado</div>'+rows2+'<div style="height:14px"></div></div>';
   }
 }
 function render(){
@@ -554,6 +648,11 @@ function render(){
   if(S.view==="config"){ app.innerHTML=viewConfig(); return; }
   if(S.view==="login"){ app.innerHTML=viewLogin(); bindLogin(); return; }
   if(S.view==="needName"){ app.innerHTML=viewName(); bindName(); return; }
+  if(S.view==="needUsername"){ app.innerHTML=viewUsername(); bindUsername(); return; }
+  if(S.view==="me"){ app.innerHTML=viewMe(); return; }
+  if(S.view==="userSearch"){ app.innerHTML=viewUserSearch(); bindUserSearch(); return; }
+  if(S.view==="userProfile"){ app.innerHTML=viewUser(); return; }
+  if(S.view==="followList"){ app.innerHTML=viewFollowList(); return; }
   if(S.view==="home"){ app.innerHTML=viewHome()+spacer()+tabbar("listas"); return; }
   if(S.view==="buscar"){ app.innerHTML=viewBuscar()+spacer()+tabbar("buscar"); bindBuscar(); return; }
   if(S.view==="puntuados"){ app.innerHTML=viewPuntuados()+spacer()+tabbar("puntuados"); return; }
@@ -665,7 +764,7 @@ function viewMovie(){
   var meta=[yr,runtimeFmt(d.runtime),genres].filter(Boolean).join(" · ");
   var crew=(d.credits&&d.credits.crew)||[];
   var dirs=dedupeCredits(crew.filter(function(c){return c.job==="Director";}));
-  var dirH=dirs.map(function(c){return '<button class="credit" data-act="openPerson" data-arg="'+c.id+'">'+faceBox(c.profile_path,c.name)+'<div class="cr-info"><div class="cr-name">'+esc(c.name)+'</div><div class="cr-role">Dirección</div></div><span class="chev">›</span></button>';}).join("");
+  var dirH=dirs.map(function(c){return '<button class="credit" data-act="openPersonDir" data-arg="'+c.id+'">'+faceBox(c.profile_path,c.name)+'<div class="cr-info"><div class="cr-name">'+esc(c.name)+'</div><div class="cr-role">Dirección</div></div><span class="chev">›</span></button>';}).join("");
   var cast=((d.credits&&d.credits.cast)||[]).slice(0,15);
   var castH=cast.map(function(c){ var ar=_mv.myActors[String(c.id)]; var right=(typeof ar==="number"&&ar>0)?('<span class="cscore">'+fmtRating(ar)+' '+starsDisplay(ar)+'</span>'):'<span class="seentag no">puntuar</span>'; return '<button class="credit" data-act="castAct" data-arg="'+c.id+'">'+faceBox(c.profile_path,c.name)+'<div class="cr-info"><div class="cr-name">'+esc(c.name)+'</div><div class="cr-role">'+esc(c.character||"")+'</div></div>'+right+'</button>';}).join("");
   var mr=_mv.myRow;
@@ -680,7 +779,7 @@ function viewMovie(){
 }
 
 /* ---- ficha de persona ---- */
-function openPerson(id){ _pf={id:String(id),loading:true,bioFull:false}; if(!_personBack&&_mv&&!_mv.loading)_personBack=_mv.id; S.view="person"; render(); tmdbPerson(id); }
+function openPerson(id,dept){ _pf={id:String(id),loading:true,bioFull:false,dept:dept||null}; if(!_personBack&&_mv&&!_mv.loading)_personBack=_mv.id; S.view="person"; render(); tmdbPerson(id); }
 async function tmdbPerson(id){
   try{ var r=await fetch("https://api.themoviedb.org/3/person/"+id+"?api_key="+encodeURIComponent(TMDB_KEY)+"&language=es-ES&append_to_response=combined_credits"); var d=await r.json();
     if(!_pf||String(_pf.id)!==String(id)||S.view!=="person")return; _pf.loading=false; _pf.data=d; render();
@@ -701,8 +800,7 @@ function viewPerson(){
   var fname=(d.name||"").split(" ")[0];
   return topbar(back)+'<div class="wrap"><div class="pf-top">'+faceBox(d.profile_path,d.name)+'<div><div class="pf-name">'+esc(d.name||"")+'</div>'+(dep?'<div class="pf-dep">'+esc(dep)+'</div>':"")+'</div></div>'+bioH
     +'<p class="soon">Pronto: tu media y la de tus amigos para '+esc(fname)+', en la pestaña Puntuados.</p>'
-    +(acting.length?'<div class="mv-sec">Como actor/actriz</div>'+rows(acting,false):"")
-    +(directing.length?'<div class="mv-sec">Como director/a</div>'+rows(directing,true):"")+'<div style="height:14px"></div></div>';
+    +((_pf.dept==="director")?((directing.length?'<div class="mv-sec">Como director/a</div>'+rows(directing,true):"")+(acting.length?'<div class="mv-sec">Como actor/actriz</div>'+rows(acting,false):"")):((acting.length?'<div class="mv-sec">Como actor/actriz</div>'+rows(acting,false):"")+(directing.length?'<div class="mv-sec">Como director/a</div>'+rows(directing,true):"")))+'<div style="height:14px"></div></div>';
 }
 
 /* ---- añadir a lista desde Buscar ---- */
@@ -793,14 +891,27 @@ var H={
   home:function(){ teardown(); S.listId=null; try{history.replaceState(null,"","#");}catch(e){} S.view="home"; render(); loadMyLists(); },
   leave:function(){ if(confirm("¿Salir de esta lista? Podrás volver con el código o el enlace.")) leaveList(); },
   filter:function(f){ S.filter=f; render(); },
-  nameGo:function(){ var i=$("nm"); if(!i)return; var v=i.value.trim(); if(!v){i.focus();return;} me.name=v; localStorage.setItem("arsoss.name",v); if(sb)sb.auth.updateUser({data:{name:v}}).then(function(){},function(){}); var h=S._pendingHash; S._pendingHash=null; if(h){openList(h);}else{S.view="home";render();loadMyLists();} },
-  profile:function(){
-    var badge=isFounder(me.id)?founderTag():"";
-    var idline=isFounder(me.id)?('<p class="hint" style="margin-top:18px">ID de tu cuenta <span class="opt">(fundador)</span>:</p><div style="display:flex;gap:8px;margin-top:6px"><input class="field" readonly value="'+esc(me.id)+'" onclick="this.select()" style="flex:1;font-size:12.5px"><button class="btn line sm" data-act="copy" data-arg="'+esc(me.id)+'">Copiar</button></div>'):"";
-    openModal('<h2>Tu perfil</h2><div style="font-weight:600;margin:-4px 0 14px;font-size:16px">'+esc(me.name)+badge+'</div><label class="lbl">Tu nombre</label><input id="pn" class="field" value="'+esc(me.name)+'" maxlength="24"><p class="hint">Así te ven los demás en las listas.</p><button class="btn block" style="margin-top:16px" data-act="saveName">Guardar</button><button class="btn line block" style="margin-top:10px" data-act="logout">Cerrar sesión</button>'+idline);
-    setTimeout(function(){var e=$("pn");if(e)e.focus();},50);
-  },
-  saveName:function(){ var v=$("pn").value.trim(); if(!v)return; me.name=v; localStorage.setItem("arsoss.name",v); if(sb)sb.auth.updateUser({data:{name:v}}).then(function(){},function(){}); if(S.view==="list"){_memberTried=false;ensureMember();} closeModal(); render(); toast("Guardado"); },
+  nameGo:function(){ var i=$("nm"); if(!i)return; var v=i.value.trim(); if(!v){i.focus();return;} me.name=v; localStorage.setItem("arsoss.name",v); if(sb)sb.auth.updateUser({data:{name:v}}).then(function(){},function(){}); if(!me.username){ S.view="needUsername"; render(); return; } var h=S._pendingHash; S._pendingHash=null; if(h){openList(h);}else{S.view="home";render();loadMyLists();} },
+  profile:function(){ _profileBack=S.view; S.view="me"; render(); loadSocial(); },
+  meBack:function(){ S.view=_profileBack||"home"; render(); },
+  toMe:function(){ S.view="me"; render(); },
+  upBack:function(){ S.view=_userBack||"me"; render(); if(S.view==="userSearch")bindUserSearch(); },
+  userSearch:function(){ S.view="userSearch"; render(); },
+  openUser:function(uid){ _userBack=S.view; openUserProfile(uid); },
+  follow:function(uid){ doFollow(uid); },
+  unfollow:function(uid){ doUnfollow(uid); },
+  followersList:function(){ openFollowList("followers"); },
+  followingList:function(){ openFollowList("following"); },
+  openPersonDir:function(id){ openPerson(id,"director"); },
+  editName:function(){ openModal('<h2>Editar nombre</h2><input id="pn" class="field" value="'+esc(me.name)+'" maxlength="24"><p class="hint">Tu nombre visible. Tu @usuario no cambia.</p><button class="btn block" style="margin-top:14px" data-act="saveName">Guardar</button>'); setTimeout(function(){var e=$("pn");if(e)e.focus();},50); },
+  privacyInfo:function(){ openModal('<h2>Privacidad</h2><p class="hint" style="margin-top:0">Ahora mismo tus notas las ven tus <b>amigos</b> (os seguís mutuamente) y, dentro de una lista, los miembros de esa lista.</p><div class="seg" style="margin-top:14px"><button class="on">Solo amigos</button><button disabled style="opacity:.5">Público (pronto)</button></div><p class="hint">El modo público (tipo Letterboxd) llegará más adelante.</p>'); },
+  doUsername:async function(a,el){ var u=normUser($("un").value); var st=$("ustatus"); if(u.length<3){ if(st){st.textContent="mínimo 3 caracteres";st.style.color="var(--danger)";} return; } if(el){el.disabled=true;el.textContent="Un momento…";}
+    try{ var r=await sb.from("profiles").select("user_id").eq("username",u).maybeSingle(); if(r.data&&r.data.user_id!==me.id){ if(st){st.textContent="✗ ese usuario ya está cogido";st.style.color="var(--danger)";} if(el){el.disabled=false;el.textContent="Continuar";} return; } }catch(e){}
+    var res=await sb.from("profiles").upsert({user_id:me.id,username:u,name:me.name,privacy:(S.profile&&S.profile.privacy)||"friends"},{onConflict:"user_id"});
+    if(res.error){ if(st){st.textContent="✗ no se pudo, prueba otro usuario";st.style.color="var(--danger)";} if(el){el.disabled=false;el.textContent="Continuar";} return; }
+    S.profile={user_id:me.id,username:u,name:me.name,privacy:(S.profile&&S.profile.privacy)||"friends"}; me.username=u; loadSocial();
+    var h=S._pendingHash; S._pendingHash=null; if(h){openList(h);}else{S.view="home";render();loadMyLists();} },
+  saveName:function(){ var v=$("pn").value.trim(); if(!v)return; me.name=v; localStorage.setItem("arsoss.name",v); if(sb){ sb.auth.updateUser({data:{name:v}}).then(function(){},function(){}); if(me.username)sb.from("profiles").upsert({user_id:me.id,username:me.username,name:v,privacy:(S.profile&&S.profile.privacy)||"friends"},{onConflict:"user_id"}).then(function(){},function(){}); } if(S.profile)S.profile.name=v; if(S.view==="list"){_memberTried=false;ensureMember();} closeModal(); render(); toast("Guardado"); },
   logout:function(){ closeModal(); if(sb)sb.auth.signOut(); },
   modalCreate:function(){ openModal('<h2>Nueva lista</h2><label class="lbl">Nombre</label><input id="cn" class="field" placeholder="p. ej. Noches de peli" maxlength="40"><label class="lbl" style="margin-top:16px">Privacidad</label><div class="seg" id="cseg"><button class="on" data-act="segPick" data-arg="pub">Pública</button><button data-act="segPick" data-arg="priv">Privada</button></div><p class="hint" id="chint">Pública: cualquiera con el enlace puede unirse.</p><button class="btn block" style="margin-top:18px" data-act="doCreate">Crear lista</button>'); setTimeout(function(){var e=$("cn");if(e)e.focus();},50); },
   segPick:function(v,el){ var seg=el.parentNode; [].forEach.call(seg.children,function(x){x.classList.remove("on");}); el.classList.add("on"); var h=$("chint"); if(h)h.textContent=v==="pub"?"Pública: cualquiera con el enlace puede unirse.":"Privada: solo se entra con el código de 6 caracteres."; },
