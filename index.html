@@ -202,6 +202,41 @@ code{background:var(--surface-2); padding:1px 6px; border-radius:6px; font-size:
 .pickprev img{width:34px; height:51px; border-radius:5px; object-fit:cover; flex:none}
 .pickprev span{flex:1; min-width:0; font-size:13.5px; font-weight:600}
 .tmdbcredit{color:var(--faint); font-size:11.5px; text-align:center; margin:26px 2px 6px; line-height:1.4}
+.tabbar{position:fixed; bottom:0; left:0; right:0; z-index:35; background:color-mix(in srgb,var(--bg) 92%,transparent); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); border-top:1px solid var(--line); padding-bottom:env(safe-area-inset-bottom,0px)}
+.tabbar .inner{max-width:620px; margin:0 auto; display:flex}
+.tab{flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; padding:10px 0 8px; color:var(--faint); font-size:11px; font-weight:600; background:none; border:none}
+.tab svg{width:23px; height:23px; stroke:currentColor; fill:none; stroke-width:1.8}
+.tab.on{color:var(--accent)}
+.bsearch{display:flex; align-items:center; gap:9px; background:var(--surface-2); border-radius:13px; padding:12px 15px; margin-top:4px; color:var(--muted)}
+.bsearch input{flex:1; background:none; border:none; outline:none; color:var(--text); font-size:16px}
+.bsearch svg{stroke:currentColor; fill:none}
+.bres{display:flex; align-items:center; gap:11px; width:100%; text-align:left; background:none; border:none; padding:9px 2px; color:inherit; border-bottom:1px solid color-mix(in srgb,var(--line) 55%,transparent); cursor:pointer}
+.bresinfo{flex:1; min-width:0; display:flex; flex-direction:column}
+.brest{font-weight:700; font-size:15px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.bresy{color:var(--muted); font-size:12.5px}
+.chev{color:var(--faint); font-size:20px; flex:none}
+.mv-hero{display:flex; gap:15px; padding:4px 0 2px}
+.mv-hero .poster{width:104px; height:156px}
+.mv-title{font-family:"Fraunces",serif; font-weight:600; font-size:22px; line-height:1.1}
+.mv-meta{color:var(--muted); font-size:13.5px; margin-top:8px; line-height:1.6}
+.mv-ov{color:var(--text); font-size:14.5px; line-height:1.5; margin-top:16px}
+.mv-sec{font-family:"Fraunces",serif; font-weight:600; font-size:17px; margin:22px 0 2px}
+.credit{display:flex; align-items:center; gap:12px; width:100%; text-align:left; background:none; border:none; padding:9px 2px; color:inherit; border-bottom:1px solid color-mix(in srgb,var(--line) 55%,transparent); cursor:pointer}
+.cface{width:44px; height:44px; border-radius:50%; flex:none; overflow:hidden; background:var(--surface-2); display:grid; place-items:center; font-weight:700; font-size:14px; color:var(--muted)}
+.cface img{width:100%; height:100%; object-fit:cover; display:block}
+.cr-info{flex:1; min-width:0}
+.cr-name{font-weight:700; font-size:14.5px}
+.cr-role{color:var(--muted); font-size:12.5px}
+.soon{color:var(--faint); font-size:12px; font-style:italic; margin-top:14px; line-height:1.4}
+.pf-top{display:flex; gap:15px; align-items:center; padding:2px 0 6px}
+.pf-top .cface{width:82px; height:82px; font-size:24px}
+.pf-name{font-family:"Fraunces",serif; font-weight:600; font-size:24px; line-height:1.05}
+.pf-dep{color:var(--accent-2); font-weight:700; font-size:13px; margin-top:3px}
+.pf-bio{color:var(--muted); font-size:14px; line-height:1.55; margin-top:14px}
+.pf-more{color:var(--accent-2); font-weight:700; cursor:pointer}
+.filmo-row{display:flex; align-items:center; gap:12px; width:100%; text-align:left; background:none; border:none; padding:9px 2px; color:inherit; border-bottom:1px solid color-mix(in srgb,var(--line) 55%,transparent); cursor:pointer}
+.filmo-row .poster{width:40px; height:60px}
+.listpick{display:flex; align-items:center; gap:12px; width:100%; text-align:left; background:var(--surface-2); border:none; border-radius:12px; padding:13px 14px; margin-top:9px; color:inherit; font-weight:600; font-size:15px; cursor:pointer}
 </style>
 </head>
 <body>
@@ -234,6 +269,7 @@ var me={id:null,name:""};
 var S={view:"loading",authMode:"in",_email:"",listId:null,filter:"all",meta:null,members:[],movies:[],seen:[],loading:true,_pendingHash:null,homeLists:null,homeLoading:false};
 var modal=null, editingId=null, _memberTried=false, _rf=null, _rateVal=0, _rateMovie=null;
 var _pickPoster=null, _pickYear=null, _tmdbResults=[], _tmdbTimer=null;
+var _bq="", _btimer=null, _mv=null, _pf=null, _personBack=null;
 
 /* ---- utils ---- */
 function $(id){return document.getElementById(id);}
@@ -493,13 +529,142 @@ function seenSetFor(movieId){ var set={}; S.seen.forEach(function(s){ if(s.movie
 function isDone(movieId){ if(S.members.length===0)return false; var set=seenSetFor(movieId); return S.members.every(function(m){return set[m.id];}); }
 
 /* ===================== render ===================== */
+function spacer(){ return '<div style="height:82px"></div>'; }
+function tabbar(active){
+  var li='<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 4v16"/></svg>';
+  var se='<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>';
+  return '<div class="tabbar"><div class="inner">'
+    +'<button class="tab '+(active==="listas"?"on":"")+'" data-act="tab" data-arg="listas">'+li+'Listas</button>'
+    +'<button class="tab '+(active==="buscar"?"on":"")+'" data-act="tab" data-arg="buscar">'+se+'Buscar</button>'
+    +'</div></div>';
+}
+function faceBox(pp,name){ var u=pp?("https://image.tmdb.org/t/p/w185"+pp):null; return '<div class="cface">'+(u?'<img loading="lazy" src="'+esc(u)+'" alt="">':esc(initials(name||"?")))+'</div>'; }
+function runtimeFmt(m){ if(!m)return ""; var h=Math.floor(m/60), mm=m%60; return (h?h+"h ":"")+(mm?mm+"min":(h?"":"0min")); }
+function dedupeCredits(arr){ var seen={},out=[]; arr.forEach(function(c){ if(c.id&&!seen[c.id]){seen[c.id]=1;out.push(c);} }); return out; }
+
+/* ---- Buscar ---- */
+function viewBuscar(){
+  return topbar('<span class="brand">Buscar</span>')
+    +'<div class="wrap"><div class="bsearch"><svg width="18" height="18" viewBox="0 0 24 24" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>'
+    +'<input id="bq" placeholder="busca una película…" value="'+esc(_bq)+'" autocomplete="off" autocapitalize="off"></div>'
+    +'<div id="bresults" style="margin-top:12px"></div></div>';
+}
+function bindBuscar(){
+  var e=$("bq"); if(!e)return; e.focus();
+  e.oninput=function(){ _bq=e.value; clearTimeout(_btimer); _btimer=setTimeout(function(){ tmdbSearchBuscar(e.value); },350); };
+  if(_bq&&_bq.trim().length>=2) tmdbSearchBuscar(_bq);
+}
+async function tmdbSearchBuscar(q){
+  var box=$("bresults"); if(!box)return;
+  q=(q||"").trim(); if(q.length<2){ box.innerHTML=""; return; }
+  box.innerHTML='<div class="tmdbloading">buscando…</div>';
+  try{
+    var r=await fetch("https://api.themoviedb.org/3/search/movie?api_key="+encodeURIComponent(TMDB_KEY)+"&language=es-ES&include_adult=false&query="+encodeURIComponent(q));
+    var d=await r.json();
+    if($("bresults")!==box)return;
+    var res=(d&&d.results?d.results:[]).slice(0,14);
+    if(!res.length){ box.innerHTML='<div class="tmdbloading">sin resultados</div>'; return; }
+    box.innerHTML=res.map(function(m){
+      var yr=(m.release_date||"").slice(0,4); var u=posterUrl(m.poster_path,"w92");
+      return '<button class="bres" data-act="openMovie" data-arg="'+m.id+'"><span class="tmdbth">'+(u?'<img loading="lazy" src="'+esc(u)+'" alt="">':"🎬")+'</span><span class="bresinfo"><span class="brest">'+esc(m.title||m.original_title||"")+'</span><span class="bresy">'+esc(yr)+'</span></span><span class="chev">›</span></button>';
+    }).join("");
+  }catch(e){ box.innerHTML='<div class="tmdbloading">no se pudo buscar · revisa tu conexión</div>'; }
+}
+
+/* ---- ficha de película ---- */
+function openMovie(id){ _mv={id:String(id),loading:true}; S.view="movie"; render(); tmdbMovie(id); }
+async function tmdbMovie(id){
+  try{
+    var r=await fetch("https://api.themoviedb.org/3/movie/"+id+"?api_key="+encodeURIComponent(TMDB_KEY)+"&language=es-ES&append_to_response=credits");
+    var d=await r.json();
+    if(!_mv||String(_mv.id)!==String(id)||S.view!=="movie")return;
+    _mv={id:String(id),loading:false,data:d}; render();
+  }catch(e){ if(_mv&&String(_mv.id)===String(id)){ _mv={id:String(id),loading:false,error:true}; render(); } }
+}
+function viewMovie(){
+  var back='<button class="iconbtn" data-act="bback">‹</button>';
+  if(!_mv||_mv.loading) return topbar(back)+'<div class="center-load"><div><div class="spin"></div>cargando…</div></div>';
+  if(_mv.error) return topbar(back)+'<div class="wrap"><div class="empty" style="margin-top:30px">No se pudo cargar la película.</div></div>';
+  var d=_mv.data;
+  var yr=(d.release_date||"").slice(0,4);
+  var genres=(d.genres||[]).map(function(g){return esc(g.name);}).join(" · ");
+  var rt=runtimeFmt(d.runtime);
+  var crew=(d.credits&&d.credits.crew)||[];
+  var dirs=dedupeCredits(crew.filter(function(c){return c.job==="Director";}));
+  var dirH=dirs.map(function(c){return '<button class="credit" data-act="openPerson" data-arg="'+c.id+'">'+faceBox(c.profile_path,c.name)+'<div class="cr-info"><div class="cr-name">'+esc(c.name)+'</div><div class="cr-role">Dirección</div></div><span class="chev">›</span></button>';}).join("");
+  var cast=((d.credits&&d.credits.cast)||[]).slice(0,12);
+  var castH=cast.map(function(c){return '<button class="credit" data-act="openPerson" data-arg="'+c.id+'">'+faceBox(c.profile_path,c.name)+'<div class="cr-info"><div class="cr-name">'+esc(c.name)+'</div><div class="cr-role">'+esc(c.character||"")+'</div></div><span class="chev">›</span></button>';}).join("");
+  var meta=[yr,rt,genres].filter(Boolean).join(" · ");
+  return topbar(back)+'<div class="wrap">'
+    +'<div class="mv-hero">'+posterBox(d.poster_path)+'<div style="flex:1;min-width:0"><div class="mv-title">'+esc(d.title||"")+'</div>'
+    +(meta?'<div class="mv-meta">'+meta+'</div>':'')
+    +'<button class="btn sm" style="margin-top:12px" data-act="addToListFrom">＋ Añadir a una lista</button></div></div>'
+    +(d.overview?'<div class="mv-ov">'+esc(d.overview)+'</div>':'')
+    +(dirH?'<div class="mv-sec">Dirección</div>'+dirH:'')
+    +(castH?'<div class="mv-sec">Reparto</div>'+castH:'')
+    +'<p class="soon">Pronto: aquí verás tu nota, la de tus amigos y en qué listas está.</p>'
+    +'<div style="height:14px"></div></div>';
+}
+
+/* ---- ficha de persona (actor / director) ---- */
+function openPerson(id,backMovie){ _pf={id:String(id),loading:true,bioFull:false}; _personBack=backMovie||(_mv&&!_mv.loading?_mv.id:null); S.view="person"; render(); tmdbPerson(id); }
+async function tmdbPerson(id){
+  try{
+    var r=await fetch("https://api.themoviedb.org/3/person/"+id+"?api_key="+encodeURIComponent(TMDB_KEY)+"&language=es-ES&append_to_response=combined_credits");
+    var d=await r.json();
+    if(!_pf||String(_pf.id)!==String(id)||S.view!=="person")return;
+    _pf.loading=false; _pf.data=d; render();
+  }catch(e){ if(_pf&&String(_pf.id)===String(id)){ _pf.loading=false; _pf.error=true; render(); } }
+}
+function viewPerson(){
+  var back='<button class="iconbtn" data-act="bback">‹</button>';
+  if(!_pf||_pf.loading) return topbar(back)+'<div class="center-load"><div><div class="spin"></div>cargando…</div></div>';
+  if(_pf.error) return topbar(back)+'<div class="wrap"><div class="empty" style="margin-top:30px">No se pudo cargar la ficha.</div></div>';
+  var d=_pf.data;
+  var dep=d.known_for_department==="Directing"?"Dirección":(d.known_for_department==="Acting"?"Interpretación":(d.known_for_department||""));
+  var bio=d.biography||"";
+  var bioShown=(_pf.bioFull||bio.length<=280)?bio:(bio.slice(0,280)+"… ");
+  var bioH=bio?('<div class="pf-bio">'+esc(bioShown)+((bio.length>280&&!_pf.bioFull)?'<span class="pf-more" data-act="bbio">ver más</span>':"")+'</div>'):"";
+  var cc=d.combined_credits||{};
+  var acting=dedupeCredits((cc.cast||[]).filter(function(c){return c.media_type==="movie";})).sort(function(a,b){return (b.popularity||0)-(a.popularity||0);}).slice(0,30);
+  var directing=dedupeCredits((cc.crew||[]).filter(function(c){return c.media_type==="movie"&&c.job==="Director";})).sort(function(a,b){return (b.popularity||0)-(a.popularity||0);}).slice(0,30);
+  function rows(arr,isDir){ return arr.map(function(f){ var yr=(f.release_date||"").slice(0,4); var role=isDir?"Dirección":(f.character||""); return '<button class="filmo-row" data-act="openMovie" data-arg="'+f.id+'">'+posterBox(f.poster_path)+'<div class="cr-info"><div class="cr-name">'+esc(f.title||f.original_title||"")+(yr?' <span class="fy">('+yr+')</span>':"")+'</div>'+(role?'<div class="cr-role">'+esc(role)+'</div>':"")+'</div><span class="chev">›</span></button>'; }).join(""); }
+  var fname=(d.name||"").split(" ")[0];
+  return topbar(back)+'<div class="wrap">'
+    +'<div class="pf-top">'+faceBox(d.profile_path,d.name)+'<div><div class="pf-name">'+esc(d.name||"")+'</div>'+(dep?'<div class="pf-dep">'+esc(dep)+'</div>':"")+'</div></div>'
+    +bioH
+    +'<p class="soon">Pronto: tu media y la de tus amigos para '+esc(fname)+', de los papeles que puntuéis.</p>'
+    +(acting.length?'<div class="mv-sec">Como actor/actriz</div>'+rows(acting,false):"")
+    +(directing.length?'<div class="mv-sec">Como director/a</div>'+rows(directing,true):"")
+    +'<div style="height:14px"></div></div>';
+}
+
+/* ---- añadir a una lista desde Buscar ---- */
+function openAddToList(){
+  var lists=S.homeLists;
+  if(!lists){ openModal('<h2>Añadir a una lista</h2><div class="center-load" style="min-height:18svh"><div class="spin"></div></div>'); loadMyLists().then(function(){ if(modal)openAddToList(); }); return; }
+  if(!lists.length){ openModal('<h2>Añadir a una lista</h2><p class="hint">Aún no tienes listas. Crea una en la pestaña Listas y vuelve.</p>'); return; }
+  var rows=lists.map(function(l){ return '<button class="listpick" data-act="doAddToList" data-arg="'+esc(l.id)+'">'+esc(l.name)+'</button>'; }).join("");
+  openModal('<h2>Añadir a una lista</h2><p class="hint" style="margin-top:0">¿A cuál la añades?</p>'+rows);
+}
+async function addMovieToList(listId,title,year,poster){
+  var mid=genId();
+  var res=await sb.from("movies").insert({id:mid,list_id:listId,title:title,note:"",tags:[],added_by:me.id,added_by_name:me.name,poster:(poster||null),year:(year||null)});
+  closeModal();
+  if(res.error){ toast(errText(res.error)); return; }
+  toast("Añadida a la lista");
+}
+
 function render(){
   var app=$("app");
   if(S.view==="loading"){ app.innerHTML='<div class="center-load"><div><div class="spin"></div>cargando…</div></div>'; return; }
   if(S.view==="config"){ app.innerHTML=viewConfig(); return; }
   if(S.view==="login"){ app.innerHTML=viewLogin(); bindLogin(); return; }
   if(S.view==="needName"){ app.innerHTML=viewName(); bindName(); return; }
-  if(S.view==="home"){ app.innerHTML=viewHome(); return; }
+  if(S.view==="home"){ app.innerHTML=viewHome()+spacer()+tabbar("listas"); return; }
+  if(S.view==="buscar"){ app.innerHTML=viewBuscar()+spacer()+tabbar("buscar"); bindBuscar(); return; }
+  if(S.view==="movie"){ app.innerHTML=viewMovie(); return; }
+  if(S.view==="person"){ app.innerHTML=viewPerson(); return; }
   if(S.view==="list"){ app.innerHTML=viewList(); return; }
 }
 function renderMaybe(){ if(S.view==="list"&&!modal)render(); }
@@ -649,6 +814,13 @@ var H={
     S._email=""; afterAuth(session);
   },
   open:function(id){ openList(id); },
+  tab:function(t){ if(t==="listas"){ S.view="home"; render(); loadMyLists(); } else { S.view="buscar"; render(); } },
+  openMovie:function(id){ openMovie(id); },
+  openPerson:function(id){ openPerson(id); },
+  bback:function(){ if(S.view==="person"&&_personBack){ openMovie(_personBack); } else { S.view="buscar"; render(); } },
+  bbio:function(){ if(_pf){ _pf.bioFull=true; render(); } },
+  addToListFrom:function(){ openAddToList(); },
+  doAddToList:function(id){ if(_mv&&_mv.data){ var d=_mv.data; addMovieToList(id,d.title||d.original_title||"",(d.release_date||"").slice(0,4)||null,d.poster_path||null); } },
   home:function(){ teardown(); S.listId=null; try{history.replaceState(null,"","#");}catch(e){} S.view="home"; render(); loadMyLists(); },
   leave:function(){ if(confirm("¿Salir de esta lista? Podrás volver con el código o el enlace.")) leaveList(); },
   filter:function(f){ S.filter=f; render(); },
