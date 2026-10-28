@@ -57,7 +57,7 @@ input,textarea{font-family:inherit}
 .btn.line{background:transparent; color:var(--text); box-shadow:inset 0 0 0 1.5px var(--line)}
 .btn.danger{background:transparent; color:var(--danger); box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--danger) 45%, transparent)}
 .btn.sm{padding:9px 15px; font-size:14px}
-.btn:disabled{opacity:.5; cursor:not-allowed}
+.btn:disabled{opacity:.6; cursor:default}
 .field{width:100%; border:1.5px solid var(--line); background:var(--bg-elev); color:var(--text); border-radius:var(--r-sm); padding:13px 15px; font-size:16px; outline:none; transition:border-color .15s;}
 .field:focus{border-color:var(--accent)}
 label.lbl{display:block; font-size:13px; font-weight:600; color:var(--muted); margin:0 0 7px 2px}
@@ -68,10 +68,10 @@ label.lbl .opt{font-weight:400; color:var(--faint)}
 .bulbs i{width:9px; height:9px; border-radius:50%; background:var(--accent); box-shadow:0 0 10px 1px var(--accent); display:block; animation:flick 2.4s infinite ease-in-out;}
 .bulbs i:nth-child(2){animation-delay:.3s} .bulbs i:nth-child(3){animation-delay:.6s} .bulbs i:nth-child(4){animation-delay:.9s} .bulbs i:nth-child(5){animation-delay:1.2s}
 @keyframes flick{0%,100%{opacity:1}50%{opacity:.35}}
-.mark{font-family:"Fraunces",serif; font-weight:600; font-size:clamp(58px,20vw,92px); line-height:.9; letter-spacing:-.02em; margin:0; color:var(--text); animation:rise .7s cubic-bezier(.2,.7,.2,1) both;}
+.mark{font-family:"Fraunces",serif; font-weight:600; font-size:clamp(54px,18vw,88px); line-height:.9; letter-spacing:-.02em; margin:0; color:var(--text); animation:rise .7s cubic-bezier(.2,.7,.2,1) both;}
 .mark .dot{color:var(--accent)}
-.tag{color:var(--muted); font-size:16px; max-width:24ch; animation:rise .7s .08s cubic-bezier(.2,.7,.2,1) both}
-.namebox{width:100%; max-width:360px; margin-top:34px; display:flex; flex-direction:column; gap:12px; animation:rise .7s .16s cubic-bezier(.2,.7,.2,1) both}
+.tag{color:var(--muted); font-size:16px; max-width:26ch; animation:rise .7s .08s cubic-bezier(.2,.7,.2,1) both}
+.namebox{width:100%; max-width:360px; margin-top:28px; display:flex; flex-direction:column; gap:12px; animation:rise .7s .16s cubic-bezier(.2,.7,.2,1) both}
 .foot{padding:18px 24px; text-align:center; color:var(--faint); font-size:12.5px}
 @keyframes rise{from{opacity:0; transform:translateY(12px)}to{opacity:1; transform:none}}
 @media (prefers-reduced-motion:reduce){.mark,.tag,.namebox{animation:none} .bulbs i{animation:none}}
@@ -138,7 +138,7 @@ label.lbl .opt{font-weight:400; color:var(--faint)}
 .seg button{flex:1; border:none; background:transparent; color:var(--muted); font-weight:600; font-size:14px; padding:10px; border-radius:9px}
 .seg button.on{background:var(--bg-elev); color:var(--text); box-shadow:var(--shadow)}
 .hint{font-size:13px; color:var(--muted); margin:8px 2px 0; line-height:1.4}
-.err{color:var(--danger); font-size:13.5px; font-weight:600; margin:12px 2px 0}
+.err{color:var(--danger); font-size:13.5px; font-weight:600; margin:10px 2px 0; line-height:1.4}
 .tagpick{display:flex; gap:8px; flex-wrap:wrap; margin-top:4px}
 .tagpick .tp{border:1.5px solid var(--line); background:transparent; color:var(--muted); border-radius:999px; padding:7px 13px; font-size:13.5px; font-weight:600}
 .tagpick .tp.on{background:var(--accent); color:var(--accent-ink); border-color:var(--accent)}
@@ -160,26 +160,25 @@ code{background:var(--surface-2); padding:1px 6px; border-radius:6px; font-size:
 <div id="app"><div class="center-load"><div><div class="spin"></div>cargando…</div></div></div>
 <div id="toast" class="toast"></div>
 
-<!-- Librería de Supabase -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
 <script>
 "use strict";
 /* ============================================================
    CONFIG  ·  pega aquí tus dos datos de Supabase
-   (Settings → API Keys).  La clave pública es segura en el navegador.
+   (Settings → API Keys  y  Data API).
+   La clave pública es segura en el navegador.
    NUNCA pongas aquí la clave secreta / service_role.
    ============================================================ */
-var SUPABASE_URL      = "https://haviyreegwsmjouzjbqi.supabase.co";      // p. ej. https://abcd1234.supabase.co
-var SUPABASE_ANON_KEY = "sb_publishable_C_8u0SolgkKU9fEQ1adplA_wqolI97V";    // sb_publishable_...  (o la anon public)
+var SUPABASE_URL      = "https://haviyreegwsmjouzjbqi.supabase.co";      // https://xxxx.supabase.co   (sin /rest/v1/)
+var SUPABASE_ANON_KEY = "sb_publishable_C_8u0SolgkKU9fEQ1adplA_wqolI97V";    // sb_publishable_...
 /* ============================================================ */
 
 var ALPHA="ABCDEFGHJKMNPQRSTUVWXYZ23456789";
 var AVA_COLORS=["#c9761a","#2a9b76","#5b6ee1","#c0485f","#8a52c7","#2f9bb5","#c7962f","#d8577f"];
 
-var sb=null, channel=null, canWrite=true, cloudReady=false;
-var me={id:null,name:localStorage.getItem("arsoss.name")||""};
-var S={view:"loading",listId:null,filter:"all",meta:null,members:[],movies:[],seen:[],loading:true};
+var sb=null, channel=null, cloudReady=false;
+var me={id:null,name:""};
+var S={view:"loading",authMode:"in",_email:"",listId:null,filter:"all",meta:null,members:[],movies:[],seen:[],loading:true,_pendingHash:null};
 var modal=null, editingId=null, _memberTried=false, _rf=null;
 
 /* ---- utils ---- */
@@ -191,26 +190,43 @@ function initials(n){n=(n||"").trim();if(!n)return "?";var p=n.split(/\s+/);retu
 function colorFor(id){id=id||"";var h=0;for(var i=0;i<id.length;i++)h=(h*31+id.charCodeAt(i))>>>0;return AVA_COLORS[h%AVA_COLORS.length];}
 function toast(t){var el=$("toast");el.textContent=t;el.classList.add("show");clearTimeout(el._t);el._t=setTimeout(function(){el.classList.remove("show");},2600);}
 function sheetErr(msg){var s=modal&&modal.querySelector(".sheet");if(!s)return;var e=s.querySelector(".err");if(!e){e=document.createElement("div");e.className="err";s.appendChild(e);}e.textContent=msg;}
+function loginErr(msg){var e=$("loginerr");if(e)e.textContent=msg||"";}
 function errText(e){ if(!e)return "Error desconocido.";var m=e.message||String(e);
   if(/Failed to fetch|NetworkError|fetch/i.test(m))return "Sin conexión con la base de datos. Revisa la URL y la clave de Supabase.";
   if(e.code==="23505")return "Ya existía (duplicado).";
   if(/row-level security|violates row|permission|not authorized/i.test(m))return "La base de datos rechazó la operación. Revisa que ejecutaste el SQL (políticas RLS).";
   return "No se pudo guardar: "+m; }
+function authErrText(e){ var m=(e&&e.message)||""; 
+  if(/Invalid login credentials/i.test(m))return "Correo o contraseña incorrectos.";
+  if(/already registered|already exists|User already/i.test(m))return "Ese correo ya tiene cuenta. Pulsa “Entrar”.";
+  if(/Password should be at least/i.test(m))return "La contraseña necesita al menos 6 caracteres.";
+  if(/Email not confirmed/i.test(m))return "La cuenta aún no está confirmada. (Desactiva “Confirm email” en Supabase, o revisa tu correo.)";
+  if(/rate limit|too many/i.test(m))return "Demasiados intentos. Espera un momento.";
+  if(/Failed to fetch|NetworkError/i.test(m))return "Sin conexión. Revisa tu internet y la clave de Supabase.";
+  return m||"No se pudo. Inténtalo de nuevo."; }
 
 function myLists(){try{return JSON.parse(localStorage.getItem("arsoss.myLists")||"[]");}catch(e){return [];}}
 function saveMyList(o){var l=myLists().filter(function(x){return x.id!==o.id;});l.unshift(o);localStorage.setItem("arsoss.myLists",JSON.stringify(l.slice(0,60)));}
 function dropMyList(id){localStorage.setItem("arsoss.myLists",JSON.stringify(myLists().filter(function(x){return x.id!==id;})));}
 
-/* ---- arranque ---- */
-function boot(){
+/* ---- arranque + sesión ---- */
+async function boot(){
   if(SUPABASE_URL.indexOf("PON_AQUI")>=0||SUPABASE_ANON_KEY.indexOf("PON_AQUI")>=0){ S.view="config"; render(); return; }
   if(!window.supabase||!window.supabase.createClient){ S.view="config"; render(); return; }
   try{ sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY); }catch(e){ S.view="config"; render(); return; }
-  me.id=localStorage.getItem("arsoss.device");
-  if(!me.id){ me.id=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():(genId()+genId()); localStorage.setItem("arsoss.device",me.id); }
-  cloudReady=true;
+  sb.auth.onAuthStateChange(function(ev){ if(ev==="SIGNED_OUT"){ teardown(); S.listId=null; cloudReady=false; S.view="login"; render(); } });
+  var r; try{ r=await sb.auth.getSession(); }catch(e){ S.view="login"; render(); return; }
+  var session=r&&r.data&&r.data.session;
+  if(!session){ S.view="login"; render(); return; }
+  afterAuth(session);
+}
+function afterAuth(session){
+  me.id=session.user.id;
+  var nm=(session.user.user_metadata&&session.user.user_metadata.name)||localStorage.getItem("arsoss.name")||"";
+  me.name=nm; cloudReady=true;
   var hash=(location.hash||"").replace(/^#/,"").trim();
-  if(!me.name){ S.view="needName"; S._pendingHash=hash||null; render(); return; }
+  if(!nm){ S.view="needName"; S._pendingHash=hash||null; render(); return; }
+  localStorage.setItem("arsoss.name",nm);
   if(hash){ openList(hash); return; }
   S.view="home"; render();
 }
@@ -227,8 +243,8 @@ async function fetchState(id){
     ]);
   }catch(e){ S.loading=false; toast(errText(e)); renderMaybe(); return; }
   if(S.listId!==id)return;
-  var L=r[0].data;
   if(r[0].error){ S.loading=false; toast(errText(r[0].error)); renderMaybe(); return; }
+  var L=r[0].data;
   if(!L){ S.meta="__missing__"; S.loading=false; renderMaybe(); return; }
   S.meta={name:L.name,isPublic:L.is_public,code:L.code,tags:L.tags||[],createdBy:L.created_by};
   S.members=(r[1].data||[]).map(function(m){return {id:m.user_id,name:m.name};});
@@ -342,6 +358,7 @@ function render(){
   var app=$("app");
   if(S.view==="loading"){ app.innerHTML='<div class="center-load"><div><div class="spin"></div>cargando…</div></div>'; return; }
   if(S.view==="config"){ app.innerHTML=viewConfig(); return; }
+  if(S.view==="login"){ app.innerHTML=viewLogin(); bindLogin(); return; }
   if(S.view==="needName"){ app.innerHTML=viewName(); bindName(); return; }
   if(S.view==="home"){ app.innerHTML=viewHome(); return; }
   if(S.view==="list"){ app.innerHTML=viewList(); return; }
@@ -351,17 +368,40 @@ function renderMaybe(){ if(S.view==="list"&&!modal)render(); }
 function viewConfig(){
   return '<div class="screen"><div class="hero"><p class="mark">arsoss<span class="dot">.</span></p>'
     +'<p class="tag">Falta conectar la base de datos.</p>'
-    +'<div class="banner" style="max-width:440px;margin-top:20px">Abre <code>index.html</code> y, en el bloque <b>CONFIG</b> de arriba, pega tu <b>Project URL</b> y tu <b>clave pública</b> de Supabase (Settings → API Keys). Luego vuelve a subir el archivo.</div></div></div>';
+    +'<div class="banner" style="max-width:440px;margin-top:20px">Abre <code>index.html</code> y, en el bloque <b>CONFIG</b> de arriba, pega tu <b>Project URL</b> y tu <b>clave pública</b> de Supabase. Luego vuelve a subir el archivo.</div></div></div>';
 }
-function viewName(){
-  return '<div class="screen"><div class="hero"><div class="bulbs"><i></i><i></i><i></i><i></i><i></i></div>'
+function bulbs(){ return '<div class="bulbs"><i></i><i></i><i></i><i></i><i></i></div>'; }
+
+function viewLogin(){
+  var up=S.authMode==="up";
+  return '<div class="screen"><div class="hero">'+bulbs()
     +'<h1 class="mark">arsoss<span class="dot">.</span></h1>'
-    +'<p class="tag">Listas de pelis que montas con tus amigos. Cada uno añade lo que recomienda.</p>'
-    +'<div class="namebox"><input id="nm" class="field" placeholder="¿cómo te llamas?" autocomplete="off" maxlength="24" style="text-align:center">'
-    +'<button class="btn block" data-act="nameGo">Entrar</button></div></div>'
+    +'<p class="tag">Entra con tu correo y tus listas te siguen a cualquier móvil.</p>'
+    +'<div class="namebox">'
+    +'<div class="seg" id="aseg"><button class="'+(!up?"on":"")+'" data-act="authTab" data-arg="in">Entrar</button><button class="'+(up?"on":"")+'" data-act="authTab" data-arg="up">Crear cuenta</button></div>'
+    +'<input id="em" class="field" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" placeholder="tu correo">'
+    +'<input id="pw" class="field" type="password" autocomplete="'+(up?"new-password":"current-password")+'" placeholder="'+(up?"contraseña (mín. 6)":"contraseña")+'">'
+    +'<button class="btn block" data-act="doAuth">'+(up?"Crear cuenta":"Entrar")+'</button>'
+    +'<div class="err" id="loginerr"></div>'
+    +'</div></div><div class="foot">tu contraseña la gestiona Supabase de forma segura</div></div>';
+}
+function bindLogin(){
+  var em=$("em"), pw=$("pw");
+  if(em&&S._email)em.value=S._email;
+  if(em)em.onkeydown=function(e){ if(e.key==="Enter"&&pw)pw.focus(); };
+  if(pw)pw.onkeydown=function(e){ if(e.key==="Enter")H.doAuth(null,document.querySelector('[data-act="doAuth"]')); };
+}
+
+function viewName(){
+  return '<div class="screen"><div class="hero">'+bulbs()
+    +'<h1 class="mark">arsoss<span class="dot">.</span></h1>'
+    +'<p class="tag">¿Cómo quieres que te vean tus amigos?</p>'
+    +'<div class="namebox"><input id="nm" class="field" placeholder="tu nombre" autocomplete="off" maxlength="24" style="text-align:center">'
+    +'<button class="btn block" data-act="nameGo">Continuar</button></div></div>'
     +'<div class="foot">tu nombre se ve junto a las pelis que marcas como vistas</div></div>';
 }
-function bindName(){ var i=$("nm"); if(!i)return; i.focus(); i.onkeydown=function(e){ if(e.key==="Enter")H.nameGo(); }; }
+function bindName(){ var i=$("nm"); if(!i)return; if(me.name)i.value=me.name; i.focus(); i.onkeydown=function(e){ if(e.key==="Enter")H.nameGo(); }; }
+
 function meChip(){ return '<button class="me-chip" data-act="profile"><span class="ava" style="background:'+colorFor(me.id)+'">'+esc(initials(me.name))+'</span>'+esc(me.name)+'</button>'; }
 function topbar(left){ return '<div class="topbar"><div class="wrap"><div class="inner">'+left+'<span class="spacer"></span>'+meChip()+'</div></div></div>'; }
 
@@ -442,14 +482,37 @@ function selectedPicks(){ return [].map.call((modal||document).querySelectorAll(
 
 /* ===================== handlers ===================== */
 var H={
+  authTab:function(mode){ var em=$("em"); if(em)S._email=em.value; S.authMode=mode; loginErr(""); render(); },
+  doAuth:async function(a,el){
+    var em=($("em").value||"").trim().toLowerCase(), pw=$("pw").value||"";
+    loginErr("");
+    if(em.indexOf("@")<1){ loginErr("Escribe un correo válido."); return; }
+    if(pw.length<6){ loginErr("La contraseña necesita al menos 6 caracteres."); return; }
+    var btn=el||document.querySelector('[data-act="doAuth"]'); var label=btn?btn.textContent:"";
+    if(btn){ btn.disabled=true; btn.textContent="Un momento…"; }
+    var res;
+    try{
+      if(S.authMode==="up") res=await sb.auth.signUp({email:em,password:pw});
+      else res=await sb.auth.signInWithPassword({email:em,password:pw});
+    }catch(e){ res={error:e}; }
+    if(res.error){ loginErr(authErrText(res.error)); if(btn){btn.disabled=false;btn.textContent=label;} return; }
+    var session=res.data&&res.data.session;
+    if(!session){ loginErr("Revisa tu correo para confirmar la cuenta y luego pulsa “Entrar”."); if(btn){btn.disabled=false;btn.textContent=label;} return; }
+    S._email=""; afterAuth(session);
+  },
   open:function(id){ openList(id); },
   home:function(){ teardown(); S.listId=null; try{history.replaceState(null,"","#");}catch(e){} S.view="home"; render(); },
   leave:function(){ if(confirm("¿Salir de esta lista? Podrás volver con el código o el enlace.")) leaveList(); },
   filter:function(f){ S.filter=f; render(); },
   seen:function(id){ toggleSeen(id); },
-  nameGo:function(){ var i=$("nm"); if(!i)return; var v=i.value.trim(); if(!v){i.focus();return;} me.name=v; localStorage.setItem("arsoss.name",v); var h=S._pendingHash; S._pendingHash=null; if(h){openList(h);}else{S.view="home";render();} },
-  profile:function(){ openModal('<h2>Tu nombre</h2><input id="pn" class="field" value="'+esc(me.name)+'" maxlength="24"><p class="hint">Así te ven los demás en las listas.</p><button class="btn block" style="margin-top:16px" data-act="saveName">Guardar</button>'); setTimeout(function(){var e=$("pn");if(e)e.focus();},50); },
-  saveName:function(){ var v=$("pn").value.trim(); if(!v)return; me.name=v; localStorage.setItem("arsoss.name",v); if(S.view==="list"){_memberTried=false;ensureMember();} closeModal(); render(); toast("Nombre actualizado"); },
+  nameGo:function(){ var i=$("nm"); if(!i)return; var v=i.value.trim(); if(!v){i.focus();return;} me.name=v; localStorage.setItem("arsoss.name",v);
+    if(sb)sb.auth.updateUser({data:{name:v}}).then(function(){},function(){});
+    var h=S._pendingHash; S._pendingHash=null; if(h){openList(h);}else{S.view="home";render();} },
+  profile:function(){ openModal('<h2>Tu perfil</h2><label class="lbl">Tu nombre</label><input id="pn" class="field" value="'+esc(me.name)+'" maxlength="24"><p class="hint">Así te ven los demás en las listas.</p><button class="btn block" style="margin-top:16px" data-act="saveName">Guardar</button><button class="btn line block" style="margin-top:10px" data-act="logout">Cerrar sesión</button>'); setTimeout(function(){var e=$("pn");if(e)e.focus();},50); },
+  saveName:function(){ var v=$("pn").value.trim(); if(!v)return; me.name=v; localStorage.setItem("arsoss.name",v);
+    if(sb)sb.auth.updateUser({data:{name:v}}).then(function(){},function(){});
+    if(S.view==="list"){_memberTried=false;ensureMember();} closeModal(); render(); toast("Guardado"); },
+  logout:function(){ closeModal(); if(sb)sb.auth.signOut(); },
   modalCreate:function(){
     openModal('<h2>Nueva lista</h2><label class="lbl">Nombre</label><input id="cn" class="field" placeholder="p. ej. Noches de peli" maxlength="40">'
       +'<label class="lbl" style="margin-top:16px">Privacidad</label>'
@@ -471,7 +534,7 @@ var H={
   doJoin:function(){ joinByCode($("jc").value); },
   modalShare:function(){
     var m=S.meta,url=location.origin+location.pathname+"#"+S.listId,inner;
-    if(m.isPublic){ inner='<p class="hint" style="margin:0 0 10px">Comparte este enlace. Quien lo abra entra directo.</p>'
+    if(m.isPublic){ inner='<p class="hint" style="margin:0 0 10px">Comparte este enlace. Quien lo abra (e inicie sesión) entra directo.</p>'
       +'<input class="field" readonly value="'+esc(url)+'" onclick="this.select()">'
       +'<button class="btn block" style="margin-top:12px" data-act="copy" data-arg="'+esc(url)+'">Copiar enlace</button>'
       +'<p class="hint" style="margin-top:14px">También pueden entrar con el código <b>'+esc(m.code)+'</b>.</p>'; }
