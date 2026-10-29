@@ -232,9 +232,9 @@ var ALPHA="ABCDEFGHJKMNPQRSTUVWXYZ23456789";
 var AVA_COLORS=["#c9761a","#2a9b76","#5b6ee1","#c0485f","#8a52c7","#2f9bb5","#c7962f","#d8577f"];
 var sb=null, channel=null, cloudReady=false;
 var me={id:null,name:""};
-var S={view:"loading",authMode:"in",_email:"",listId:null,filter:"all",meta:null,members:[],movies:[],mrat:{},loading:true,_pendingHash:null,homeLists:null,homeLoading:false,punTab:"pelis",punSort:"nota_desc",myMovies:null,myActors:null,punLoading:false,punDetail:null,profile:null,following:[],followers:[],friends:[],userQ:"",viewUserData:null,followList:null,profNames:{}};
+var S={view:"loading",authMode:"in",_email:"",listId:null,filter:"all",meta:null,members:[],movies:[],mrat:{},loading:true,_pendingHash:null,homeLists:null,homeLoading:false,punTab:"pelis",punSort:"nota_desc",myMovies:null,myActors:null,punLoading:false,punDetail:null,profile:null,following:[],followers:[],friends:[],userQ:"",viewUserData:null,followList:null,profNames:{},bTab:"pelis",friendMovies:[],friendActors:[]};
 var modal=null, editingId=null, _memberTried=false, _rf=null, _rateVal=0;
-var _profileBack="home", _userBack="me", _unameTimer=null;
+var _profileBack="home", _userBack="me", _unameTimer=null, _stack=[];
 var _rateSave=null, _rateRemove=null, _rateNoNote=false;
 var _pickPoster=null, _pickYear=null, _pickTmdbId=null, _tmdbTimer=null, _tmdbResults=[];
 var _bq="", _btimer=null, _mv=null, _pf=null, _personBack=null, _movieBack="buscar";
@@ -248,7 +248,7 @@ function initials(n){n=(n||"").trim();if(!n)return "?";var p=n.split(/\s+/);retu
 function colorFor(id){id=id||"";var h=0;for(var i=0;i<id.length;i++)h=(h*31+id.charCodeAt(i))>>>0;return AVA_COLORS[h%AVA_COLORS.length];}
 function isFounder(uid){ return !!(FOUNDER_UID && uid===FOUNDER_UID); }
 function founderTag(){ return ' <span class="sep">·</span> <span class="founder">'+esc(FOUNDER_TITLE)+'</span>'; }
-function personRow(uid,name,right){ return '<div class="prow"><span class="ava" style="background:'+colorFor(uid)+'">'+esc(initials(name))+'</span><span class="nm">'+esc(name)+(uid===me.id?' <span class="sep">·</span> <span class="you">tú</span>':'')+(isFounder(uid)?founderTag():'')+'</span>'+(right||'')+'</div>'; }
+function personRow(uid,name,right){ return '<div class="prow" data-act="openUser" data-arg="'+esc(uid)+'" style="cursor:pointer"><span class="ava" style="background:'+colorFor(uid)+'">'+esc(initials(name))+'</span><span class="nm">'+esc(name)+(uid===me.id?' <span class="sep">·</span> <span class="you">tú</span>':'')+(isFounder(uid)?founderTag():'')+'</span>'+(right||'')+'</div>'; }
 function fmtRating(n){ return (n%1===0)?String(n):String(n).replace(".",","); }
 function fmtAvg(n){ return n.toFixed(1).replace(".",","); }
 function starsInner(r){ var h=""; for(var i=1;i<=5;i++){ var full=r>=i, half=!full&&r>=i-0.5; h+='<span class="starwrap"><button class="starhalf left" data-act="setStar" data-arg="'+(i-0.5)+'"></button><button class="starhalf right" data-act="setStar" data-arg="'+i+'"></button><span class="star '+(full?"full":half?"half":"")+'">★</span></span>'; } return h; }
@@ -367,7 +367,7 @@ function viewUsername(){
 function bindUsername(){ var e=$("un"); if(!e)return; e.focus(); e.oninput=function(){ e.value=normUser(e.value); clearTimeout(_unameTimer); _unameTimer=setTimeout(function(){ checkUsername(e.value); },350); }; }
 function viewMe(){
   var back='<button class="iconbtn" data-act="meBack">‹</button>';
-  var fid=isFounder(me.id)?('<p class="hint" style="margin-top:18px">ID de tu cuenta <span class="opt">(fundador)</span>:</p><div style="display:flex;gap:8px;margin-top:6px"><input class="field" readonly value="'+esc(me.id)+'" onclick="this.select()" style="flex:1;font-size:12.5px"><button class="btn line sm" data-act="copy" data-arg="'+esc(me.id)+'">Copiar</button></div>'):"";
+  var fid="";
   var stat='border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--surface);color:inherit;font:inherit;cursor:pointer;flex:1;text-align:center';
   return topbar(back)+'<div class="wrap"><div class="pf-top">'+avatarBig(me.id,me.name)+'<div style="min-width:0"><div class="pf-name">'+esc(me.name)+(isFounder(me.id)?founderTag():"")+'</div><div class="pf-dep">@'+esc(me.username||"")+'</div></div></div>'
     +'<div style="display:flex;gap:10px;margin-top:14px"><button style="'+stat+'" data-act="followersList"><b style="font-size:17px">'+S.followers.length+'</b> <span style="color:var(--muted)">seguidores</span></button><button style="'+stat+'" data-act="followingList"><b style="font-size:17px">'+S.following.length+'</b> <span style="color:var(--muted)">siguiendo</span></button></div>'
@@ -384,7 +384,7 @@ async function runUserSearch(q){
     box.innerHTML=res.length?res.map(function(p){return userRow(p);}).join(""):'<div class="tmdbloading">sin resultados</div>';
   }catch(e){ box.innerHTML='<div class="tmdbloading">no se pudo buscar</div>'; }
 }
-function openUserProfile(uid){ S.viewUserData={id:uid,loading:true}; S.view="userProfile"; render(); loadUserProfile(uid); }
+function openUserProfile(uid,isBack){ if(!isBack)navPush(); S.viewUserData={id:uid,loading:true}; S.view="userProfile"; render(); loadUserProfile(uid); }
 async function loadUserProfile(uid){
   try{ var out=await Promise.all([ sb.from("profiles").select("*").eq("user_id",uid).maybeSingle(), sb.from("follows").select("following_id").eq("follower_id",uid), sb.from("follows").select("follower_id").eq("following_id",uid) ]);
     if(!S.viewUserData||S.viewUserData.id!==uid)return;
@@ -403,7 +403,7 @@ function viewUser(){
     +'<button class="btn'+(following?" line":"")+' block" style="margin-top:16px" data-act="'+(following?"unfollow":"follow")+'" data-arg="'+esc(u.id)+'">'+(following?"Dejar de seguir":"Seguir")+'</button>'
     +(friend?'<p class="soon">Sois amigos: ya veis vuestras notas mutuamente.</p>':(following?'<p class="soon">Cuando '+esc((p.name||"").split(" ")[0])+' te siga de vuelta, seréis amigos.</p>':''))+'</div>';
 }
-function openFollowList(kind){ S.followList={kind:kind,ids:(kind==="followers"?S.followers.slice():S.following.slice())}; S.view="followList"; render(); loadProfileNames(S.followList.ids).then(function(){ if(S.view==="followList")render(); }); }
+function openFollowList(kind){ navPush(); S.followList={kind:kind,ids:(kind==="followers"?S.followers.slice():S.following.slice())}; S.view="followList"; render(); loadProfileNames(S.followList.ids).then(function(){ if(S.view==="followList")render(); }); }
 function viewFollowList(){
   var back='<button class="iconbtn" data-act="toMe">‹</button>'; var fl=S.followList||{kind:"followers",ids:[]};
   var title=fl.kind==="followers"?"Seguidores":"Siguiendo";
@@ -582,6 +582,56 @@ function isDone(f){ if(!f||!f.tmdbId||S.members.length===0)return false; var set
 function listRatingStats(f){ if(!f||!f.tmdbId)return null; var vals=[]; S.members.forEach(function(m){ var r=S.mrat[f.tmdbId+"__"+m.id]; if(r&&typeof r.rating==="number"&&r.rating>0)vals.push(r.rating); }); if(!vals.length)return null; var s=0;vals.forEach(function(v){s+=v;}); return {avg:s/vals.length,count:vals.length}; }
 
 /* ===================== render ===================== */
+/* ---- pila de navegación (flecha atrás paso a paso) ---- */
+function curLoc(){
+  var v=S.view;
+  if(v==="movie"&&_mv)return {kind:"movie",id:_mv.id};
+  if(v==="person"&&_pf)return {kind:"person",id:_pf.id,dept:_pf.dept};
+  if(v==="userProfile"&&S.viewUserData)return {kind:"user",id:S.viewUserData.id};
+  if(v==="punDetail"&&S.punDetail)return {kind:"punDetail",detail:S.punDetail};
+  if(v==="list"&&S.listId)return {kind:"list",id:S.listId};
+  if(v==="followList")return {kind:"followList",fl:S.followList};
+  if(v==="userSearch")return {kind:"userSearch"};
+  if(v==="me")return {kind:"me"};
+  return {kind:"root",view:(v==="buscar"||v==="puntuados"||v==="home")?v:"home"};
+}
+function navPush(){ _stack.push(curLoc()); if(_stack.length>40)_stack.shift(); }
+function navBack(){ var loc=_stack.pop(); if(!loc){ S.view="buscar"; render(); return; } restore(loc); }
+function restore(loc){
+  if(loc.kind==="movie"){ openMovie(loc.id,true); }
+  else if(loc.kind==="person"){ openPerson(loc.id,loc.dept,true); }
+  else if(loc.kind==="user"){ openUserProfile(loc.id,true); }
+  else if(loc.kind==="punDetail"){ S.punDetail=loc.detail; S.view="punDetail"; render(); }
+  else if(loc.kind==="list"){ openList(loc.id); }
+  else if(loc.kind==="followList"){ S.followList=loc.fl; S.view="followList"; render(); }
+  else if(loc.kind==="userSearch"){ S.view="userSearch"; render(); }
+  else if(loc.kind==="me"){ S.view="me"; render(); loadSocial(); }
+  else { S.view=(loc.view||"home"); render(); if(loc.view==="home")loadMyLists(); else if(loc.view==="puntuados")loadPuntuados(); }
+}
+
+/* ---- búsqueda de gente de cine y usuarios (dentro de Buscar) ---- */
+async function tmdbSearchPerson(q){
+  var box=$("bresults"); if(!box)return; q=(q||"").trim(); if(q.length<2){ box.innerHTML=""; return; }
+  box.innerHTML='<div class="tmdbloading">buscando…</div>';
+  try{ var r=await fetch("https://api.themoviedb.org/3/search/person?api_key="+encodeURIComponent(TMDB_KEY)+"&language=es-ES&query="+encodeURIComponent(q)); var d=await r.json(); if($("bresults")!==box)return;
+    var res=(d&&d.results?d.results:[]).slice(0,16);
+    if(!res.length){ box.innerHTML='<div class="tmdbloading">sin resultados</div>'; return; }
+    box.innerHTML=res.map(function(p){ var isDir=p.known_for_department==="Directing"; var dep=isDir?"Dirección":(p.known_for_department==="Acting"?"Interpretación":(p.known_for_department||"")); return '<button class="credit" data-act="'+(isDir?"openPersonDir":"openPerson")+'" data-arg="'+p.id+'">'+faceBox(p.profile_path,p.name)+'<div class="cr-info"><div class="cr-name">'+esc(p.name||"")+'</div><div class="cr-role">'+esc(dep)+'</div></div><span class="chev">›</span></button>'; }).join("");
+  }catch(e){ box.innerHTML='<div class="tmdbloading">no se pudo buscar</div>'; }
+}
+async function runUserSearchBuscar(q){
+  var box=$("bresults"); if(!box)return; q=normUser(q); if(q.length<1){ box.innerHTML=""; return; }
+  box.innerHTML='<div class="tmdbloading">buscando…</div>';
+  try{ var r=await sb.from("profiles").select("user_id,username,name").ilike("username","%"+q+"%").limit(20); if($("bresults")!==box)return;
+    var res=(r.data||[]).filter(function(p){return p.user_id!==me.id&&p.username;});
+    box.innerHTML=res.length?res.map(function(p){return userRow(p);}).join(""):'<div class="tmdbloading">sin resultados</div>';
+  }catch(e){ box.innerHTML='<div class="tmdbloading">no se pudo buscar</div>'; }
+}
+
+/* ---- medias de amigos ---- */
+function friendActorAvg(pid){ var vals=(S.friendActors||[]).filter(function(a){return String(a.person_id)===String(pid)&&typeof a.rating==="number"&&a.rating>0;}).map(function(a){return a.rating;}); if(!vals.length)return null; var s=0;vals.forEach(function(v){s+=v;}); return {avg:s/vals.length,count:vals.length}; }
+function friendDirectorAvg(id){ var vals=[]; (S.friendMovies||[]).forEach(function(m){ if(typeof m.rating==="number"&&m.rating>0&&(m.directors||[]).some(function(x){return String(x.id)===String(id);}))vals.push(m.rating); }); if(!vals.length)return null; var s=0;vals.forEach(function(v){s+=v;}); return {avg:s/vals.length,count:vals.length}; }
+
 function spacer(){ return '<div style="height:82px"></div>'; }
 function tabbar(active){
   var li='<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 4v16"/></svg>';
@@ -594,13 +644,17 @@ function tabbar(active){
 async function loadPuntuados(){
   if(!sb||!me.id)return;
   if(S.myMovies===null)S.punLoading=true; if(S.view==="puntuados")render();
-  try{ var out=await Promise.all([ sb.from("movie_ratings").select("*").eq("user_id",me.id), sb.from("actor_ratings").select("*").eq("user_id",me.id) ]); S.myMovies=(out[0]&&out[0].data)?out[0].data:[]; S.myActors=(out[1]&&out[1].data)?out[1].data:[]; }
+  try{ var hasF=S.friends&&S.friends.length; var q=[ sb.from("movie_ratings").select("*").eq("user_id",me.id), sb.from("actor_ratings").select("*").eq("user_id",me.id) ];
+    if(hasF){ q.push(sb.from("movie_ratings").select("tmdb_id,rating,directors").in("user_id",S.friends)); q.push(sb.from("actor_ratings").select("person_id,rating").in("user_id",S.friends)); }
+    var out=await Promise.all(q); S.myMovies=(out[0]&&out[0].data)?out[0].data:[]; S.myActors=(out[1]&&out[1].data)?out[1].data:[];
+    S.friendMovies=(hasF&&out[2]&&out[2].data)?out[2].data:[]; S.friendActors=(hasF&&out[3]&&out[3].data)?out[3].data:[];
+  }
   catch(e){ if(!S.myMovies)S.myMovies=[]; if(!S.myActors)S.myActors=[]; toast(errText(e)); }
   S.punLoading=false; if(S.view==="puntuados"||S.view==="punDetail")render();
 }
 function actorAgg(){ var map={}; (S.myActors||[]).forEach(function(a){ if(typeof a.rating!=="number"||a.rating<=0)return; var id=String(a.person_id); if(!map[id])map[id]={id:id,name:a.person_name||"",profile:a.person_profile||null,sum:0,count:0}; map[id].sum+=a.rating; map[id].count++; }); var arr=[]; for(var k in map){ var m=map[k]; m.avg=m.sum/m.count; arr.push(m);} return arr; }
 function directorAgg(){ var map={}; (S.myMovies||[]).forEach(function(mv){ if(typeof mv.rating!=="number"||mv.rating<=0)return; (mv.directors||[]).forEach(function(d){ var id=String(d.id); if(!map[id])map[id]={id:id,name:d.name||"",profile:d.profile||null,sum:0,count:0}; map[id].sum+=mv.rating; map[id].count++; }); }); var arr=[]; for(var k in map){ var m=map[k]; m.avg=m.sum/m.count; arr.push(m);} return arr; }
-function sortAgg(arr,cur){ if(cur==="media_desc")arr.sort(function(a,b){return b.avg-a.avg;}); else if(cur==="media_asc")arr.sort(function(a,b){return a.avg-b.avg;}); else if(cur==="mas")arr.sort(function(a,b){return b.count-a.count;}); else if(cur==="menos")arr.sort(function(a,b){return a.count-b.count;}); }
+function sortAgg(arr,cur){ if(cur==="media_desc")arr.sort(function(a,b){return b.avg-a.avg;}); else if(cur==="media_asc")arr.sort(function(a,b){return a.avg-b.avg;}); else if(cur==="mas")arr.sort(function(a,b){return b.count-a.count;}); else if(cur==="menos")arr.sort(function(a,b){return a.count-b.count;}); else if(cur==="amigos_desc")arr.sort(function(a,b){return (b.fr?b.fr.avg:-1)-(a.fr?a.fr.avg:-1);}); else if(cur==="amigos_asc")arr.sort(function(a,b){return (a.fr?a.fr.avg:99)-(b.fr?b.fr.avg:99);}); }
 function sortChips(opts,cur){ return '<div class="chips" style="padding-top:8px">'+opts.map(function(o){ return '<button class="chip '+(cur===o.v?"on":"")+'" data-act="punSort" data-arg="'+o.v+'">'+esc(o.l)+'</button>'; }).join("")+'</div>'; }
 function viewPuntuados(){
   var head=topbar('<span class="brand">Puntuados</span>');
@@ -616,15 +670,19 @@ function viewPuntuados(){
     list=movies.length?movies.map(function(m){ var yr=m.year?(' <span class="fyear">('+esc(m.year)+')</span>'):''; var rt=(typeof m.rating==="number"&&m.rating>0)?('<span class="cscore">'+fmtRating(m.rating)+' '+starsDisplay(m.rating)+'</span>'):'<span class="seentag yes">visto</span>'; return '<button class="credit" data-act="openPunMovie" data-arg="'+esc(m.tmdb_id)+'">'+posterBox(m.poster)+'<div class="cr-info"><div class="cr-name">'+esc(m.title||"")+yr+'</div></div>'+rt+'</button>'; }).join(""):'<div class="empty" style="margin-top:16px"><p style="margin:0">Aún no has puntuado ninguna peli. Busca una y ponle nota.</p></div>';
   } else {
     var isAct=S.punTab==="actores";
-    var cur=(/^media_|^mas$|^menos$/.test(S.punSort)?S.punSort:"media_desc");
-    chips=sortChips([{v:"media_desc",l:"Media alta"},{v:"media_asc",l:"Media baja"},{v:"mas",l:"Más puntuados"},{v:"menos",l:"Menos"}],cur);
-    var arr=isAct?actorAgg():directorAgg(); sortAgg(arr,cur);
+    var cur=(/^media_|^mas$|^menos$|^amigos_/.test(S.punSort)?S.punSort:"media_desc");
+    var opts=[{v:"media_desc",l:"Tu media alta"},{v:"media_asc",l:"Tu media baja"},{v:"mas",l:"Más puntuados"},{v:"menos",l:"Menos"}];
+    if(S.friends&&S.friends.length){ opts.push({v:"amigos_desc",l:"Media amigos alta"}); opts.push({v:"amigos_asc",l:"Media amigos baja"}); }
+    chips=sortChips(opts,cur);
+    var arr=isAct?actorAgg():directorAgg();
+    arr.forEach(function(a){ a.fr=isAct?friendActorAvg(a.id):friendDirectorAvg(a.id); });
+    sortAgg(arr,cur);
     var act=isAct?"openPunActor":"openPunDirector";
-    list=arr.length?arr.map(function(a){ var sub2=a.count+" "+(isAct?(a.count===1?"papel puntuado":"papeles puntuados"):(a.count===1?"peli tuya":"pelis tuyas")); return '<button class="credit" data-act="'+act+'" data-arg="'+esc(a.id)+'">'+faceBox(a.profile,a.name)+'<div class="cr-info"><div class="cr-name">'+esc(a.name)+'</div><div class="cr-role">'+sub2+'</div></div><span class="cscore">'+fmtAvg(a.avg)+' '+starsDisplay(a.avg)+'</span></button>'; }).join(""):'<div class="empty" style="margin-top:16px"><p style="margin:0">'+(isAct?"Aún no has puntuado a ningún actor. Entra en una peli y puntúa a su reparto.":"Aún no hay directores. Puntúa pelis y su media saldrá aquí sola.")+'</p></div>';
+    list=arr.length?arr.map(function(a){ var sub2=a.count+" "+(isAct?(a.count===1?"papel":"papeles"):(a.count===1?"peli tuya":"pelis tuyas"))+(a.fr?(' <span class="sep">·</span> amigos ★'+fmtAvg(a.fr.avg)):''); return '<button class="credit" data-act="'+act+'" data-arg="'+esc(a.id)+'">'+faceBox(a.profile,a.name)+'<div class="cr-info"><div class="cr-name">'+esc(a.name)+'</div><div class="cr-role">'+sub2+'</div></div><span class="cscore">'+fmtAvg(a.avg)+' '+starsDisplay(a.avg)+'</span></button>'; }).join(""):'<div class="empty" style="margin-top:16px"><p style="margin:0">'+(isAct?"Aún no has puntuado a ningún actor. Entra en una peli y puntúa a su reparto.":"Aún no hay directores. Puntúa pelis y su media saldrá aquí sola.")+'</p></div>';
   }
   return head+sub+'<div class="wrap">'+chips+list+'</div>';
 }
-function openPunDetail(d){ S.punDetail=d; S.view="punDetail"; render(); }
+function openPunDetail(d){ navPush(); S.punDetail=d; S.view="punDetail"; render(); }
 function viewPunDetail(){
   var back='<button class="iconbtn" data-act="punBack">‹</button>'; var d=S.punDetail;
   if(!d) return topbar(back)+'<div class="wrap"><div class="empty" style="margin-top:30px">—</div></div>';
@@ -633,13 +691,13 @@ function viewPunDetail(){
     var sum=0;items.forEach(function(a){sum+=a.rating;}); var avg=items.length?sum/items.length:0;
     items.sort(function(a,b){return b.rating-a.rating;});
     var rows=items.map(function(a){ var yr=a.movie_year?(' <span class="fyear">('+esc(a.movie_year)+')</span>'):''; return '<button class="credit" data-act="openPunMovie" data-arg="'+esc(a.tmdb_id)+'">'+posterBox(a.movie_poster)+'<div class="cr-info"><div class="cr-name">'+esc(a.movie_title||"")+yr+'</div><div class="cr-role">'+esc(a.role_name||"")+'</div></div><span class="cscore">'+fmtRating(a.rating)+' '+starsDisplay(a.rating)+'</span></button>'; }).join("");
-    return topbar(back)+'<div class="wrap"><div class="pf-top">'+faceBox(d.profile,d.name)+'<div><div class="pf-name">'+esc(d.name)+'</div><div class="pf-dep">Tu media como actor · <span class="ratechip">★ '+fmtAvg(avg)+'</span></div></div></div><button class="btn line sm" style="margin-top:10px" data-act="openPerson" data-arg="'+esc(d.id)+'">Ver ficha completa y filmografía</button><div class="mv-sec">Tus notas, papel a papel</div>'+rows+'<div style="height:14px"></div></div>';
+    return topbar(back)+'<div class="wrap"><div class="pf-top">'+faceBox(d.profile,d.name)+'<div><div class="pf-name">'+esc(d.name)+'</div><div class="pf-dep">Tu media <span class="ratechip">★ '+fmtAvg(avg)+'</span>'+(friendActorAvg(d.id)?(' <span class="sep">·</span> Amigos <span class="ratechip">★ '+fmtAvg(friendActorAvg(d.id).avg)+'</span>'):'')+'</div></div></div><button class="btn line sm" style="margin-top:10px" data-act="openPerson" data-arg="'+esc(d.id)+'">Ver ficha completa y filmografía</button><div class="mv-sec">Tus notas, papel a papel</div>'+rows+'<div style="height:14px"></div></div>';
   } else {
     var mv=(S.myMovies||[]).filter(function(m){ return typeof m.rating==="number"&&m.rating>0&&(m.directors||[]).some(function(x){return String(x.id)===String(d.id);}); });
     var sum2=0;mv.forEach(function(m){sum2+=m.rating;}); var avg2=mv.length?sum2/mv.length:0;
     mv.sort(function(a,b){return b.rating-a.rating;});
     var rows2=mv.map(function(m){ var yr=m.year?(' <span class="fyear">('+esc(m.year)+')</span>'):''; return '<button class="credit" data-act="openPunMovie" data-arg="'+esc(m.tmdb_id)+'">'+posterBox(m.poster)+'<div class="cr-info"><div class="cr-name">'+esc(m.title||"")+yr+'</div></div><span class="cscore">'+fmtRating(m.rating)+' '+starsDisplay(m.rating)+'</span></button>'; }).join("");
-    return topbar(back)+'<div class="wrap"><div class="pf-top">'+faceBox(d.profile,d.name)+'<div><div class="pf-name">'+esc(d.name)+'</div><div class="pf-dep">Tu media de sus pelis · <span class="ratechip">★ '+fmtAvg(avg2)+'</span></div></div></div><button class="btn line sm" style="margin-top:10px" data-act="openPersonDir" data-arg="'+esc(d.id)+'">Ver ficha completa y filmografía</button><div class="mv-sec">Sus pelis que has puntuado</div>'+rows2+'<div style="height:14px"></div></div>';
+    return topbar(back)+'<div class="wrap"><div class="pf-top">'+faceBox(d.profile,d.name)+'<div><div class="pf-name">'+esc(d.name)+'</div><div class="pf-dep">Tu media <span class="ratechip">★ '+fmtAvg(avg2)+'</span>'+(friendDirectorAvg(d.id)?(' <span class="sep">·</span> Amigos <span class="ratechip">★ '+fmtAvg(friendDirectorAvg(d.id).avg)+'</span>'):'')+'</div></div></div><button class="btn line sm" style="margin-top:10px" data-act="openPersonDir" data-arg="'+esc(d.id)+'">Ver ficha completa y filmografía</button><div class="mv-sec">Sus pelis que has puntuado</div>'+rows2+'<div style="height:14px"></div></div>';
   }
 }
 function render(){
@@ -726,8 +784,14 @@ function filmCard(f){
 }
 
 /* ---- Buscar ---- */
-function viewBuscar(){ return topbar('<span class="brand">Buscar</span>')+'<div class="wrap"><div class="bsearch"><svg width="18" height="18" viewBox="0 0 24 24" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input id="bq" placeholder="busca una película…" value="'+esc(_bq)+'" autocomplete="off" autocapitalize="off"></div><div id="bresults" style="margin-top:12px"></div></div>'; }
-function bindBuscar(){ var e=$("bq"); if(!e)return; e.focus(); e.oninput=function(){ _bq=e.value; clearTimeout(_btimer); _btimer=setTimeout(function(){ tmdbSearchBuscar(e.value); },350); }; if(_bq&&_bq.trim().length>=2) tmdbSearchBuscar(_bq); }
+function viewBuscar(){
+  var seg='<div class="seg" style="margin:4px 0 10px"><button class="'+(S.bTab==="pelis"?"on":"")+'" data-act="bTab" data-arg="pelis">Pelis</button><button class="'+(S.bTab==="gente"?"on":"")+'" data-act="bTab" data-arg="gente">Gente del cine</button><button class="'+(S.bTab==="usuarios"?"on":"")+'" data-act="bTab" data-arg="usuarios">Usuarios</button></div>';
+  var ph=S.bTab==="pelis"?"busca una película…":(S.bTab==="gente"?"busca un actor o director…":"busca por @usuario…");
+  var pre=S.bTab==="usuarios"?'<span style="color:var(--muted);font-weight:700">@</span>':'<svg width="18" height="18" viewBox="0 0 24 24" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>';
+  return topbar('<span class="brand">Buscar</span>')+'<div class="wrap">'+seg+'<div class="bsearch">'+pre+'<input id="bq" placeholder="'+ph+'" value="'+esc(_bq)+'" autocomplete="off" autocapitalize="off"></div><div id="bresults" style="margin-top:12px"></div></div>';
+}
+function runBuscar(q){ if(S.bTab==="pelis")tmdbSearchBuscar(q); else if(S.bTab==="gente")tmdbSearchPerson(q); else runUserSearchBuscar(q); }
+function bindBuscar(){ var e=$("bq"); if(!e)return; e.focus(); e.oninput=function(){ _bq=e.value; clearTimeout(_btimer); _btimer=setTimeout(function(){ runBuscar(e.value); },350); }; if(_bq&&_bq.trim().length>=1) runBuscar(_bq); }
 async function tmdbSearchBuscar(q){
   var box=$("bresults"); if(!box)return; q=(q||"").trim(); if(q.length<2){ box.innerHTML=""; return; }
   box.innerHTML='<div class="tmdbloading">buscando…</div>';
@@ -739,20 +803,30 @@ async function tmdbSearchBuscar(q){
 }
 
 /* ---- ficha de película (centro para puntuar) ---- */
-function openMovie(id,back){ _movieBack=back||"buscar"; _mv={id:String(id),loading:true,myActors:{}}; S.view="movie"; render(); tmdbMovie(id); }
+function openMovie(id,isBack){ if(!isBack)navPush(); _mv={id:String(id),loading:true,myActors:{},frActors:{}}; S.view="movie"; render(); tmdbMovie(id); }
 async function tmdbMovie(id){
   try{
-    var out=await Promise.all([
+    var hasF=S.friends&&S.friends.length;
+    var q=[
       fetch("https://api.themoviedb.org/3/movie/"+id+"?api_key="+encodeURIComponent(TMDB_KEY)+"&language=es-ES&append_to_response=credits").then(function(r){return r.json();}),
       sb.from("movie_ratings").select("rating").eq("user_id",me.id).eq("tmdb_id",String(id)).maybeSingle(),
       sb.from("actor_ratings").select("person_id,rating").eq("user_id",me.id).eq("tmdb_id",String(id))
-    ]);
+    ];
+    if(hasF){ q.push(sb.from("movie_ratings").select("rating").eq("tmdb_id",String(id)).in("user_id",S.friends)); q.push(sb.from("actor_ratings").select("person_id,rating").eq("tmdb_id",String(id)).in("user_id",S.friends)); }
+    var out=await Promise.all(q);
     if(!_mv||String(_mv.id)!==String(id)||S.view!=="movie")return;
     var d=out[0], mr=out[1], ar=out[2];
     var myActors={}; (ar&&ar.data?ar.data:[]).forEach(function(a){ myActors[String(a.person_id)]=a.rating; });
-    _mv={id:String(id),loading:false,data:d,myRow:(mr&&mr.data)?{rating:mr.data.rating}:null,myRating:(mr&&mr.data)?mr.data.rating:null,myActors:myActors};
+    var frMovie=null, frActors={};
+    if(hasF){ var fm=out[3], fa=out[4];
+      var vals=((fm&&fm.data)||[]).map(function(x){return x.rating;}).filter(function(v){return typeof v==="number"&&v>0;});
+      if(vals.length){ var s=0;vals.forEach(function(v){s+=v;}); frMovie={avg:s/vals.length,count:vals.length}; }
+      var am={}; ((fa&&fa.data)||[]).forEach(function(x){ if(typeof x.rating==="number"&&x.rating>0){ var pid=String(x.person_id); if(!am[pid])am[pid]={sum:0,count:0}; am[pid].sum+=x.rating; am[pid].count++; } });
+      for(var k in am){ frActors[k]={avg:am[k].sum/am[k].count,count:am[k].count}; }
+    }
+    _mv={id:String(id),loading:false,data:d,myRow:(mr&&mr.data)?{rating:mr.data.rating}:null,myRating:(mr&&mr.data)?mr.data.rating:null,myActors:myActors,frMovie:frMovie,frActors:frActors};
     render();
-  }catch(e){ if(_mv&&String(_mv.id)===String(id)){ _mv={id:String(id),loading:false,error:true,myActors:{}}; render(); } }
+  }catch(e){ if(_mv&&String(_mv.id)===String(id)){ _mv={id:String(id),loading:false,error:true,myActors:{},frActors:{}}; render(); } }
 }
 function viewMovie(){
   var back='<button class="iconbtn" data-act="bback">‹</button>';
@@ -766,9 +840,10 @@ function viewMovie(){
   var dirs=dedupeCredits(crew.filter(function(c){return c.job==="Director";}));
   var dirH=dirs.map(function(c){return '<button class="credit" data-act="openPersonDir" data-arg="'+c.id+'">'+faceBox(c.profile_path,c.name)+'<div class="cr-info"><div class="cr-name">'+esc(c.name)+'</div><div class="cr-role">Dirección</div></div><span class="chev">›</span></button>';}).join("");
   var cast=((d.credits&&d.credits.cast)||[]).slice(0,15);
-  var castH=cast.map(function(c){ var ar=_mv.myActors[String(c.id)]; var right=(typeof ar==="number"&&ar>0)?('<span class="cscore">'+fmtRating(ar)+' '+starsDisplay(ar)+'</span>'):'<span class="seentag no">puntuar</span>'; return '<button class="credit" data-act="castAct" data-arg="'+c.id+'">'+faceBox(c.profile_path,c.name)+'<div class="cr-info"><div class="cr-name">'+esc(c.name)+'</div><div class="cr-role">'+esc(c.character||"")+'</div></div>'+right+'</button>';}).join("");
-  var mr=_mv.myRow;
-  var tuNota='<div class="tunota"><div class="tn-l">'+(mr?('<span class="tn-lbl">Tu nota</span>'+(typeof mr.rating==="number"&&mr.rating>0?(starsDisplay(mr.rating)+' <b style="color:var(--gold)">'+fmtRating(mr.rating)+'</b>'):'<span class="seentag yes">visto</span>')):'<span class="tn-lbl">Aún no la has puntuado</span>')+'</div><button class="btn sm" data-act="rateMovie">'+(mr?'Cambiar':'Puntuar')+'</button></div>';
+  var castH=cast.map(function(c){ var ar=_mv.myActors[String(c.id)]; var fa=_mv.frActors[String(c.id)]; var right=(typeof ar==="number"&&ar>0)?('<span class="cscore">'+fmtRating(ar)+' '+starsDisplay(ar)+'</span>'):'<span class="seentag no">puntuar</span>'; var frl=fa?'<div class="cr-role" style="color:var(--gold)">amigos ★ '+fmtAvg(fa.avg)+'</div>':''; return '<button class="credit" data-act="castAct" data-arg="'+c.id+'">'+faceBox(c.profile_path,c.name)+'<div class="cr-info"><div class="cr-name">'+esc(c.name)+'</div><div class="cr-role">'+esc(c.character||"")+'</div>'+frl+'</div>'+right+'</button>';}).join("");
+  var mr=_mv.myRow, fr=_mv.frMovie;
+  var tuNota='<div class="tunota"><div class="tn-l">'+(mr?('<span class="tn-lbl">Tu nota</span>'+(typeof mr.rating==="number"&&mr.rating>0?(starsDisplay(mr.rating)+' <b style="color:var(--gold)">'+fmtRating(mr.rating)+'</b>'):'<span class="seentag yes">visto</span>')):'<span class="tn-lbl">Aún no la has puntuado</span>')+'</div><button class="btn sm" data-act="rateMovie">'+(mr?'Cambiar':'Puntuar')+'</button></div>'
+    +(fr?'<div class="tunota" style="margin-top:8px;background:var(--surface-2);box-shadow:none"><div class="tn-l"><span class="tn-lbl">Media de amigos</span> '+starsDisplay(fr.avg)+' <b style="color:var(--gold)">'+fmtAvg(fr.avg)+'</b></div><span style="color:var(--faint);font-size:12.5px">'+fr.count+(fr.count===1?" amigo":" amigos")+'</span></div>':'');
   return topbar(back)+'<div class="wrap">'
     +'<div class="mv-hero">'+posterBox(d.poster_path)+'<div style="flex:1;min-width:0"><div class="mv-title">'+esc(d.title||"")+'</div>'+(meta?'<div class="mv-meta">'+meta+'</div>':'')+'<button class="btn sm" style="margin-top:12px" data-act="addToListFrom">＋ Añadir a una lista</button></div></div>'
     +tuNota
@@ -779,7 +854,7 @@ function viewMovie(){
 }
 
 /* ---- ficha de persona ---- */
-function openPerson(id,dept){ _pf={id:String(id),loading:true,bioFull:false,dept:dept||null}; if(!_personBack&&_mv&&!_mv.loading)_personBack=_mv.id; S.view="person"; render(); tmdbPerson(id); }
+function openPerson(id,dept,isBack){ if(!isBack)navPush(); _pf={id:String(id),loading:true,bioFull:false,dept:dept||null}; S.view="person"; render(); tmdbPerson(id); }
 async function tmdbPerson(id){
   try{ var r=await fetch("https://api.themoviedb.org/3/person/"+id+"?api_key="+encodeURIComponent(TMDB_KEY)+"&language=es-ES&append_to_response=combined_credits"); var d=await r.json();
     if(!_pf||String(_pf.id)!==String(id)||S.view!=="person")return; _pf.loading=false; _pf.data=d; render();
@@ -848,28 +923,20 @@ var H={
     var session=res.data&&res.data.session; if(!session){ loginErr("Revisa tu correo para confirmar la cuenta y luego pulsa “Entrar”."); if(btn){btn.disabled=false;btn.textContent=label;} return; }
     S._email=""; afterAuth(session);
   },
-  open:function(id){ openList(id); },
-  tab:function(t){ if(t==="listas"){ S.view="home"; render(); loadMyLists(); } else if(t==="puntuados"){ S.view="puntuados"; render(); loadPuntuados(); } else { S.view="buscar"; render(); } },
+  open:function(id){ navPush(); openList(id); },
+  tab:function(t){ _stack=[]; if(t==="listas"){ S.view="home"; render(); loadMyLists(); } else if(t==="puntuados"){ S.view="puntuados"; render(); loadPuntuados(); } else { S.view="buscar"; render(); } },
+  bTab:function(t){ S.bTab=t; render(); },
   punTab:function(t){ S.punTab=t; S.punSort=(t==="pelis")?"nota_desc":"media_desc"; render(); },
   punSort:function(v){ S.punSort=v; render(); },
-  openPunMovie:function(id){ var back=(S.view==="punDetail"&&S.punDetail)?{pdet:S.punDetail}:"puntuados"; openMovie(id,back); },
+  openPunMovie:function(id){ openMovie(id); },
   openPunActor:function(id){ var a=actorAgg().filter(function(x){return x.id===String(id);})[0]; openPunDetail({type:"actor",id:String(id),name:a?a.name:"",profile:a?a.profile:null}); },
   openPunDirector:function(id){ var a=directorAgg().filter(function(x){return x.id===String(id);})[0]; openPunDetail({type:"director",id:String(id),name:a?a.name:"",profile:a?a.profile:null}); },
-  punBack:function(){ S.view="puntuados"; S.punDetail=null; render(); loadPuntuados(); },
+  punBack:function(){ navBack(); },
   openMovie:function(id){ openMovie(id); },
-  openMovieList:function(tmdbId){ openMovie(tmdbId,{list:S.listId}); },
+  openMovieList:function(tmdbId){ openMovie(tmdbId); },
   openPerson:function(id){ openPerson(id); },
   openPersonFromCast:function(id){ closeModal(); openPerson(id); },
-  bback:function(){
-    if(S.view==="person"){ if(_personBack){ var pb=_personBack; _personBack=null; openMovie(pb,_movieBack); } else { S.view="buscar"; render(); } return; }
-    if(S.view==="movie"){ var b=_movieBack;
-      if(b==="puntuados"){ S.view="puntuados"; render(); loadPuntuados(); }
-      else if(b&&b.pdet){ openPunDetail(b.pdet); loadPuntuados(); }
-      else if(b&&b.list){ openList(b.list); }
-      else { S.view="buscar"; render(); }
-      return; }
-    S.view="buscar"; render();
-  },
+  bback:function(){ navBack(); },
   bbio:function(){ if(_pf){ _pf.bioFull=true; render(); } },
   addToListFrom:function(){ openAddToList(); },
   doAddToList:function(id){ if(_mv&&_mv.data){ var d=_mv.data; addMovieToList(id,d.title||d.original_title||"",(d.release_date||"").slice(0,4)||null,d.poster_path||null,String(_mv.id)); } },
@@ -888,16 +955,16 @@ var H={
     var rows=S.members.map(function(m){ var r=set[m.id], right; if(!r) right='<span class="seentag no">sin ver</span>'; else if(typeof r.rating==="number"&&r.rating>0) right=starsDisplay(r.rating); else right='<span class="seentag yes">visto</span>'; return personRow(m.id,m.name,right); }).join("");
     openModal('<h2>'+esc(title)+'</h2>'+head+rows);
   },
-  home:function(){ teardown(); S.listId=null; try{history.replaceState(null,"","#");}catch(e){} S.view="home"; render(); loadMyLists(); },
+  home:function(){ _stack=[]; teardown(); S.listId=null; try{history.replaceState(null,"","#");}catch(e){} S.view="home"; render(); loadMyLists(); },
   leave:function(){ if(confirm("¿Salir de esta lista? Podrás volver con el código o el enlace.")) leaveList(); },
   filter:function(f){ S.filter=f; render(); },
   nameGo:function(){ var i=$("nm"); if(!i)return; var v=i.value.trim(); if(!v){i.focus();return;} me.name=v; localStorage.setItem("arsoss.name",v); if(sb)sb.auth.updateUser({data:{name:v}}).then(function(){},function(){}); if(!me.username){ S.view="needUsername"; render(); return; } var h=S._pendingHash; S._pendingHash=null; if(h){openList(h);}else{S.view="home";render();loadMyLists();} },
-  profile:function(){ _profileBack=S.view; S.view="me"; render(); loadSocial(); },
-  meBack:function(){ S.view=_profileBack||"home"; render(); },
-  toMe:function(){ S.view="me"; render(); },
-  upBack:function(){ S.view=_userBack||"me"; render(); if(S.view==="userSearch")bindUserSearch(); },
-  userSearch:function(){ S.view="userSearch"; render(); },
-  openUser:function(uid){ _userBack=S.view; openUserProfile(uid); },
+  profile:function(){ navPush(); S.view="me"; render(); loadSocial(); },
+  meBack:function(){ navBack(); },
+  toMe:function(){ navBack(); },
+  upBack:function(){ navBack(); },
+  userSearch:function(){ navPush(); S.view="userSearch"; render(); },
+  openUser:function(uid){ closeModal(); openUserProfile(uid); },
   follow:function(uid){ doFollow(uid); },
   unfollow:function(uid){ doUnfollow(uid); },
   followersList:function(){ openFollowList("followers"); },
