@@ -233,6 +233,8 @@ code{background:var(--surface-2); padding:1px 6px; border-radius:6px; font-size:
 .countsrow .cx span{font-size:11px; color:var(--muted)}
 .pbar{height:10px; border-radius:6px; background:var(--surface-2); overflow:hidden; margin-top:14px}
 .pbar > i{display:block; height:100%; background:var(--accent); width:0; transition:width .25s}
+.ava{overflow:hidden}
+.ava img{width:100%; height:100%; object-fit:cover; display:block}
 </style>
 </head>
 <body>
@@ -254,7 +256,7 @@ var ALPHA="ABCDEFGHJKMNPQRSTUVWXYZ23456789";
 var AVA_COLORS=["#c9761a","#2a9b76","#5b6ee1","#c0485f","#8a52c7","#2f9bb5","#c7962f","#d8577f"];
 var sb=null, channel=null, cloudReady=false;
 var me={id:null,name:""};
-var S={view:"loading",authMode:"in",_email:"",listId:null,filter:"all",meta:null,members:[],movies:[],mrat:{},loading:true,_pendingHash:null,homeLists:null,homeLoading:false,punTab:"pelis",punSort:"nota_desc",myMovies:null,myActors:null,punLoading:false,punDetail:null,profile:null,following:[],followers:[],friends:[],userQ:"",viewUserData:null,followList:null,profNames:{},bTab:"pelis",friendMovies:[],friendActors:[],fpOwner:null,fpMovies:null,fpActors:null,fpTab:"pelis",fpSort:"nota_desc",personTotals:{},imp:null};
+var S={view:"loading",authMode:"in",_email:"",listId:null,filter:"all",meta:null,members:[],movies:[],mrat:{},loading:true,_pendingHash:null,homeLists:null,homeLoading:false,punTab:"pelis",punSort:"nota_desc",myMovies:null,myActors:null,punLoading:false,punDetail:null,profile:null,following:[],followers:[],friends:[],userQ:"",viewUserData:null,followList:null,profNames:{},bTab:"pelis",friendMovies:[],friendActors:[],fpOwner:null,fpMovies:null,fpActors:null,fpTab:"pelis",fpSort:"nota_desc",personTotals:{},imp:null,avatars:{}};
 var modal=null, editingId=null, _memberTried=false, _rf=null, _rateVal=0;
 var _profileBack="home", _userBack="me", _unameTimer=null, _stack=[];
 var _rateSave=null, _rateRemove=null, _rateNoNote=false;
@@ -270,7 +272,7 @@ function initials(n){n=(n||"").trim();if(!n)return "?";var p=n.split(/\s+/);retu
 function colorFor(id){id=id||"";var h=0;for(var i=0;i<id.length;i++)h=(h*31+id.charCodeAt(i))>>>0;return AVA_COLORS[h%AVA_COLORS.length];}
 function isFounder(uid){ return !!(FOUNDER_UID && uid===FOUNDER_UID); }
 function founderTag(){ return ' <span class="sep">·</span> <span class="founder">'+esc(FOUNDER_TITLE)+'</span>'; }
-function personRow(uid,name,right){ return '<div class="prow" data-act="openUser" data-arg="'+esc(uid)+'" style="cursor:pointer"><span class="ava" style="background:'+colorFor(uid)+'">'+esc(initials(name))+'</span><span class="nm">'+esc(name)+(uid===me.id?' <span class="sep">·</span> <span class="you">tú</span>':'')+(isFounder(uid)?founderTag():'')+'</span>'+(right||'')+'</div>'; }
+function personRow(uid,name,right){ return '<div class="prow" data-act="openUser" data-arg="'+esc(uid)+'" style="cursor:pointer">'+ava(uid,name)+'<span class="nm">'+esc(name)+(uid===me.id?' <span class="sep">·</span> <span class="you">tú</span>':'')+(isFounder(uid)?founderTag():'')+'</span>'+(right||'')+'</div>'; }
 function fmtRating(n){ return (n%1===0)?String(n):String(n).replace(".",","); }
 function fmtAvg(n){ return n.toFixed(1).replace(".",","); }
 function starsInner(r){ var h=""; for(var i=1;i<=5;i++){ var full=r>=i, half=!full&&r>=i-0.5; h+='<span class="starwrap"><button class="starhalf left" data-act="setStar" data-arg="'+(i-0.5)+'"></button><button class="starhalf right" data-act="setStar" data-arg="'+i+'"></button><span class="star '+(full?"full":half?"half":"")+'">★</span></span>'; } return h; }
@@ -336,6 +338,7 @@ async function afterAuth(session){
   try{ var pr=await sb.from("profiles").select("*").eq("user_id",me.id).maybeSingle(); S.profile=(pr&&pr.data)?pr.data:null; }catch(e){ S.profile=null; }
   if(S.profile&&S.profile.name&&!me.name)me.name=S.profile.name;
   if(S.profile&&S.profile.username)me.username=S.profile.username;
+  me.avatar=(S.profile&&S.profile.avatar)||null; if(me.avatar)S.avatars[me.id]=me.avatar;
   cloudReady=true;
   var hash=(location.hash||"").replace(/^#/,"").trim();
   if(!me.name){ S.view="needName"; S._pendingHash=hash||null; render(); return; }
@@ -361,7 +364,7 @@ async function loadSocial(){
 async function loadProfileNames(ids){
   ids=(ids||[]).filter(function(id){return id&&!S.profNames[id];});
   if(!ids.length)return;
-  try{ var r=await sb.from("profiles").select("user_id,username,name").in("user_id",ids); (r.data||[]).forEach(function(p){ S.profNames[p.user_id]={username:p.username,name:p.name}; }); }catch(e){}
+  try{ var r=await sb.from("profiles").select("user_id,username,name,avatar").in("user_id",ids); (r.data||[]).forEach(function(p){ S.profNames[p.user_id]={username:p.username,name:p.name}; if(p.avatar)S.avatars[p.user_id]=p.avatar; }); }catch(e){}
 }
 async function checkUsername(u){
   var el=$("ustatus"); if(!el)return; u=normUser(u);
@@ -374,8 +377,35 @@ async function checkUsername(u){
 }
 async function doFollow(uid){ if(S.following.indexOf(uid)<0)S.following.push(uid); recomputeFriends(); render(); var res=await sb.from("follows").upsert({follower_id:me.id,following_id:uid},{onConflict:"follower_id,following_id"}); if(res.error)toast(errText(res.error)); }
 async function doUnfollow(uid){ S.following=S.following.filter(function(x){return x!==uid;}); recomputeFriends(); render(); var res=await sb.from("follows").delete().eq("follower_id",me.id).eq("following_id",uid); if(res.error)toast(errText(res.error)); }
-function avatarBig(uid,name){ return '<div class="cface" style="width:82px;height:82px;font-size:26px;background:'+colorFor(uid)+';color:#fff">'+esc(initials(name))+'</div>'; }
-function avatarSm(uid,name){ return '<div class="cface" style="background:'+colorFor(uid)+';color:#fff">'+esc(initials(name))+'</div>'; }
+function avaImg(uid){ return (S.avatars&&S.avatars[uid])?S.avatars[uid]:null; }
+function ava(uid,name,extra){ var u=avaImg(uid); if(u)return '<span class="ava" style="'+(extra||"")+'"><img src="'+esc(u)+'" alt=""></span>'; return '<span class="ava" style="background:'+colorFor(uid)+';'+(extra||"")+'">'+esc(initials(name))+'</span>'; }
+function avatarBig(uid,name){ var u=avaImg(uid); return '<div class="cface" style="width:82px;height:82px;font-size:26px;'+(u?'':'background:'+colorFor(uid)+';color:#fff')+'">'+(u?'<img src="'+esc(u)+'" alt="">':esc(initials(name)))+'</div>'; }
+function avatarSm(uid,name){ var u=avaImg(uid); return '<div class="cface" style="'+(u?'':'background:'+colorFor(uid)+';color:#fff')+'">'+(u?'<img src="'+esc(u)+'" alt="">':esc(initials(name)))+'</div>'; }
+function bindMe(){ var f=$("avfile"); if(f)f.onchange=function(){ if(f.files&&f.files[0])uploadAvatar(f.files[0]); f.value=""; }; }
+function resizeToSquare(file,size){ return new Promise(function(resolve,reject){ var img=new Image(); var url=URL.createObjectURL(file); img.onload=function(){ try{ var s=Math.min(img.width,img.height); var sx=(img.width-s)/2, sy=(img.height-s)/2; var c=document.createElement("canvas"); c.width=size; c.height=size; var ctx=c.getContext("2d"); ctx.drawImage(img,sx,sy,s,s,0,0,size,size); URL.revokeObjectURL(url); c.toBlob(function(b){ b?resolve(b):reject(new Error("blob")); },"image/jpeg",0.85); }catch(e){reject(e);} }; img.onerror=function(){ URL.revokeObjectURL(url); reject(new Error("img")); }; img.src=url; }); }
+async function uploadAvatar(file){
+  toast("Subiendo foto…");
+  var blob; try{ blob=await resizeToSquare(file,256); }catch(e){ toast("No se pudo leer la imagen"); return; }
+  var path=me.id+".jpg", up;
+  try{ up=await sb.storage.from("avatars").upload(path,blob,{upsert:true,contentType:"image/jpeg"}); }catch(e){ up={error:e}; }
+  if(up.error){ toast("No se pudo subir (revisa el bucket 'avatars' en Supabase)"); return; }
+  var pub=sb.storage.from("avatars").getPublicUrl(path);
+  var url=(pub&&pub.data&&pub.data.publicUrl)?pub.data.publicUrl:null;
+  if(!url){ toast("No se pudo obtener la foto"); return; }
+  url=url+"?v="+Date.now();
+  me.avatar=url; S.avatars[me.id]=url; if(S.profile)S.profile.avatar=url;
+  var res=await sb.from("profiles").upsert({user_id:me.id,username:me.username,name:me.name,privacy:(S.profile&&S.profile.privacy)||"friends",avatar:url},{onConflict:"user_id"});
+  if(res.error)toast(errText(res.error)); else toast("Foto actualizada");
+  render();
+}
+async function removeAvatar(){
+  if(!confirm("¿Quitar tu foto de perfil?"))return;
+  me.avatar=null; delete S.avatars[me.id]; if(S.profile)S.profile.avatar=null;
+  var res=await sb.from("profiles").upsert({user_id:me.id,username:me.username,name:me.name,privacy:(S.profile&&S.profile.privacy)||"friends",avatar:null},{onConflict:"user_id"});
+  try{ sb.storage.from("avatars").remove([me.id+".jpg"]); }catch(e){}
+  if(res.error)toast(errText(res.error)); else toast("Foto quitada");
+  render();
+}
 function userRow(p){
   var following=S.following.indexOf(p.user_id)>=0, friend=S.friends.indexOf(p.user_id)>=0;
   var btn='<button class="btn sm'+(following?" line":"")+'" data-act="'+(following?"unfollow":"follow")+'" data-arg="'+esc(p.user_id)+'">'+(following?"Siguiendo":"Seguir")+'</button>';
@@ -391,7 +421,7 @@ function viewMe(){
   var back='<button class="iconbtn" data-act="meBack">‹</button>';
   var fid="";
   var stat='border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--surface);color:inherit;font:inherit;cursor:pointer;flex:1;text-align:center';
-  return topbar(back)+'<div class="wrap"><div class="pf-top">'+avatarBig(me.id,me.name)+'<div style="min-width:0"><div class="pf-name">'+esc(me.name)+(isFounder(me.id)?founderTag():"")+'</div><div class="pf-dep">@'+esc(me.username||"")+'</div></div></div>'
+  return topbar(back)+'<div class="wrap"><div class="pf-top">'+avatarBig(me.id,me.name)+'<div style="min-width:0"><div class="pf-name">'+esc(me.name)+(isFounder(me.id)?founderTag():"")+'</div><div class="pf-dep">@'+esc(me.username||"")+'</div><input type="file" id="avfile" accept="image/*" style="display:none"><div style="margin-top:8px;display:flex;gap:8px"><button class="btn line sm" data-act="avatarPick">'+(me.avatar?"Cambiar foto":"Subir foto")+'</button>'+(me.avatar?'<button class="btn line sm" style="color:var(--danger)" data-act="avatarRemove">Quitar</button>':'')+'</div></div></div>'
     +'<div style="display:flex;gap:10px;margin-top:14px"><button style="'+stat+'" data-act="followersList"><b style="font-size:17px">'+S.followers.length+'</b> <span style="color:var(--muted)">seguidores</span></button><button style="'+stat+'" data-act="followingList"><b style="font-size:17px">'+S.following.length+'</b> <span style="color:var(--muted)">siguiendo</span></button></div>'
     +countsRow(punCounts(S.myMovies,S.myActors))+'<button class="btn line block" style="margin-top:16px" data-act="editName">Editar nombre</button><button class="btn line block" style="margin-top:10px" data-act="privacyInfo">Privacidad: solo amigos</button><button class="btn line block" style="margin-top:10px" data-act="openImport">Importar de Letterboxd</button><button class="btn line block" style="margin-top:10px" data-act="logout">Cerrar sesión</button>'+fid
     +'<p class="soon" style="margin-top:20px">“Amigo” = os seguís los dos. Tus notas las ven tus amigos (y, dentro de una lista, sus miembros).</p></div>';
@@ -413,6 +443,7 @@ async function loadUserProfile(uid){
     var counts=null;
     if(S.friends.indexOf(uid)>=0){ try{ var rc=await Promise.all([ sb.from("movie_ratings").select("rating,directors").eq("user_id",uid), sb.from("actor_ratings").select("rating").eq("user_id",uid) ]); if(S.viewUserData&&S.viewUserData.id===uid)counts=punCounts((rc[0]&&rc[0].data)||[],(rc[1]&&rc[1].data)||[]); }catch(e){} }
     S.viewUserData={id:uid,loading:false,profile:(out[0]&&out[0].data)||null,following:((out[1]&&out[1].data)||[]).length,followers:((out[2]&&out[2].data)||[]).length,counts:counts};
+    if(S.viewUserData.profile&&S.viewUserData.profile.avatar)S.avatars[uid]=S.viewUserData.profile.avatar;
     render(); applyPendingScroll();
   }catch(e){ if(S.viewUserData&&S.viewUserData.id===uid){ S.viewUserData={id:uid,loading:false,error:true}; render(); } }
 }
@@ -456,6 +487,7 @@ async function fetchState(id){
   var L=r[0].data; if(!L){ S.meta="__missing__"; S.loading=false; renderMaybe(); return; }
   S.meta={name:L.name,isPublic:L.is_public,code:L.code,tags:L.tags||[],createdBy:L.created_by};
   S.members=(r[1].data||[]).map(function(m){return {id:m.user_id,name:m.name};});
+  loadProfileNames(S.members.map(function(m){return m.id;})).then(function(){ if(S.view==="list")render(); });
   S.movies=(r[2].data||[]).map(function(m){return {id:m.id,title:m.title,note:m.note,tags:m.tags||[],addedBy:m.added_by,addedByName:m.added_by_name,createdAt:m.created_at,poster:m.poster||null,year:m.year||null,tmdbId:m.tmdb_id||null};});
   S.mrat={};
   var tset={}; S.movies.forEach(function(m){ if(m.tmdbId)tset[m.tmdbId]=1; });
@@ -654,8 +686,9 @@ async function tmdbSearchPerson(q){
 async function runUserSearchBuscar(q){
   var box=$("bresults"); if(!box)return; q=normUser(q); if(q.length<1){ box.innerHTML=""; return; }
   box.innerHTML='<div class="tmdbloading">buscando…</div>';
-  try{ var r=await sb.from("profiles").select("user_id,username,name").ilike("username","%"+q+"%").limit(20); if($("bresults")!==box)return;
+  try{ var r=await sb.from("profiles").select("user_id,username,name,avatar").ilike("username","%"+q+"%").limit(20); if($("bresults")!==box)return;
     var res=(r.data||[]).filter(function(p){return p.user_id!==me.id&&p.username;});
+    res.forEach(function(p){ if(p.avatar)S.avatars[p.user_id]=p.avatar; });
     box.innerHTML=res.length?res.map(function(p){return userRow(p);}).join(""):'<div class="tmdbloading">sin resultados</div>';
   }catch(e){ box.innerHTML='<div class="tmdbloading">no se pudo buscar</div>'; }
 }
@@ -843,7 +876,7 @@ function render(){
   if(S.view==="login"){ app.innerHTML=viewLogin(); bindLogin(); return; }
   if(S.view==="needName"){ app.innerHTML=viewName(); bindName(); return; }
   if(S.view==="needUsername"){ app.innerHTML=viewUsername(); bindUsername(); return; }
-  if(S.view==="me"){ app.innerHTML=viewMe(); return; }
+  if(S.view==="me"){ app.innerHTML=viewMe(); bindMe(); return; }
   if(S.view==="import"){ app.innerHTML=viewImport(); bindImport(); return; }
   if(S.view==="userSearch"){ app.innerHTML=viewUserSearch(); bindUserSearch(); return; }
   if(S.view==="userProfile"){ app.innerHTML=viewUser(); return; }
@@ -872,7 +905,7 @@ function viewLogin(){
 function bindLogin(){ var em=$("em"), pw=$("pw"); if(em&&S._email)em.value=S._email; if(em)em.onkeydown=function(e){ if(e.key==="Enter"&&pw)pw.focus(); }; if(pw)pw.onkeydown=function(e){ if(e.key==="Enter")H.doAuth(null,document.querySelector('[data-act="doAuth"]')); }; }
 function viewName(){ return '<div class="screen"><div class="hero">'+bulbs()+'<h1 class="mark">arsoss<span class="dot">.</span></h1><p class="tag">¿Cómo quieres que te vean tus amigos?</p><div class="namebox"><input id="nm" class="field" placeholder="tu nombre" autocomplete="off" maxlength="24" style="text-align:center"><button class="btn block" data-act="nameGo">Continuar</button></div></div><div class="foot">tu nombre se ve junto a lo que puntúas</div></div>'; }
 function bindName(){ var i=$("nm"); if(!i)return; if(me.name)i.value=me.name; i.focus(); i.onkeydown=function(e){ if(e.key==="Enter")H.nameGo(); }; }
-function meChip(){ return '<button class="me-chip" data-act="profile"><span class="ava" style="background:'+colorFor(me.id)+'">'+esc(initials(me.name))+'</span>'+esc(me.name)+(isFounder(me.id)?founderTag():"")+'</button>'; }
+function meChip(){ return '<button class="me-chip" data-act="profile">'+ava(me.id,me.name)+esc(me.name)+(isFounder(me.id)?founderTag():"")+'</button>'; }
 function topbar(left){ return '<div class="topbar"><div class="wrap"><div class="inner">'+left+'<span class="spacer"></span>'+meChip()+'</div></div></div>'; }
 
 function viewHome(){
@@ -889,7 +922,7 @@ function viewList(){
   if(S.meta==="__missing__"){ return topbar('<button class="iconbtn" data-act="home">‹</button>')+'<div class="wrap"><div class="empty" style="margin-top:40px"><h3>Lista no encontrada</h3><p>Puede que el enlace o el código no sean correctos.</p><button class="btn" style="margin-top:14px" data-act="home">Volver</button></div></div>'; }
   if(S.loading||!S.meta){ return topbar('<button class="iconbtn" data-act="home">‹</button>')+'<div class="center-load"><div><div class="spin"></div>abriendo lista…</div></div>'; }
   var m=S.meta,tags=m.tags||[],av="";
-  S.members.slice(0,6).forEach(function(mm){ av+='<span class="ava" style="background:'+colorFor(mm.id)+'" title="'+esc(mm.name)+'">'+esc(initials(mm.name))+'</span>'; });
+  S.members.slice(0,6).forEach(function(mm){ av+=ava(mm.id,mm.name); });
   var mc=S.members.length;
   var chips='<button class="chip '+(S.filter==="all"?"on":"")+'" data-act="filter" data-arg="all">Todas</button>';
   tags.forEach(function(t){ chips+='<button class="chip '+(S.filter===t?"on":"")+'" data-act="filter" data-arg="'+esc(t)+'">'+esc(t)+'</button>'; });
@@ -908,7 +941,7 @@ function filmCard(f){
     return '<div class="film editable" data-act="editMovie" data-arg="'+esc(f.id)+'"><div class="filmtop">'+posterBox(null)+'<div class="filmbody"><div class="ft">'+esc(f.title)+(f.year?' <span class="fyear">('+esc(f.year)+')</span>':'')+'</div>'+(f.note?'<div class="fn">'+esc(f.note)+'</div>':'')+'<div class="ftags"><span class="ftag" style="color:var(--accent-2);background:var(--accent-soft)">toca para vincular con TMDB</span></div></div></div></div>';
   }
   var set=seenSet(f), done=isDone(f), myr=S.mrat[f.tmdbId+"__"+me.id];
-  var av=""; S.members.forEach(function(m){ if(set[m.id])av+='<span class="ava" style="width:22px;height:22px;background:'+colorFor(m.id)+'" title="'+esc(m.name)+'">'+esc(initials(m.name))+'</span>'; });
+  var av=""; S.members.forEach(function(m){ if(set[m.id])av+=ava(m.id,m.name,'width:22px;height:22px'); });
   var seenN=0; S.members.forEach(function(m){ if(set[m.id])seenN++; });
   var tagsH=""; (f.tags||[]).forEach(function(t){ tagsH+='<span class="ftag">'+esc(t)+'</span>'; });
   var st=listRatingStats(f);
@@ -1103,6 +1136,8 @@ var H={
   nameGo:function(){ var i=$("nm"); if(!i)return; var v=i.value.trim(); if(!v){i.focus();return;} me.name=v; localStorage.setItem("arsoss.name",v); if(sb)sb.auth.updateUser({data:{name:v}}).then(function(){},function(){}); if(!me.username){ S.view="needUsername"; render(); return; } var h=S._pendingHash; S._pendingHash=null; if(h){openList(h);}else{S.view="home";render();loadMyLists();} },
   profile:function(){ navPush(); S.view="me"; render(); loadSocial(); },
   openImport:function(){ navPush(); S.imp={state:"idle"}; S.view="import"; render(); },
+  avatarPick:function(){ var f=$("avfile"); if(f)f.click(); },
+  avatarRemove:function(){ removeAvatar(); },
   impPick:function(){ var f=$("impfile"); if(f)f.click(); },
   impConfirm:async function(){
     if(!S.imp||!S.imp.matched||!S.imp.matched.length)return;
