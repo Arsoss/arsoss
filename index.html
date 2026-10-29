@@ -231,6 +231,8 @@ code{background:var(--surface-2); padding:1px 6px; border-radius:6px; font-size:
 .countsrow .cx{flex:1; text-align:center; border:1px solid var(--line); border-radius:12px; padding:10px 4px}
 .countsrow .cx b{display:block; font-size:18px; font-family:"Fraunces",serif}
 .countsrow .cx span{font-size:11px; color:var(--muted)}
+.pbar{height:10px; border-radius:6px; background:var(--surface-2); overflow:hidden; margin-top:14px}
+.pbar > i{display:block; height:100%; background:var(--accent); width:0; transition:width .25s}
 </style>
 </head>
 <body>
@@ -252,7 +254,7 @@ var ALPHA="ABCDEFGHJKMNPQRSTUVWXYZ23456789";
 var AVA_COLORS=["#c9761a","#2a9b76","#5b6ee1","#c0485f","#8a52c7","#2f9bb5","#c7962f","#d8577f"];
 var sb=null, channel=null, cloudReady=false;
 var me={id:null,name:""};
-var S={view:"loading",authMode:"in",_email:"",listId:null,filter:"all",meta:null,members:[],movies:[],mrat:{},loading:true,_pendingHash:null,homeLists:null,homeLoading:false,punTab:"pelis",punSort:"nota_desc",myMovies:null,myActors:null,punLoading:false,punDetail:null,profile:null,following:[],followers:[],friends:[],userQ:"",viewUserData:null,followList:null,profNames:{},bTab:"pelis",friendMovies:[],friendActors:[],fpOwner:null,fpMovies:null,fpActors:null,fpTab:"pelis",fpSort:"nota_desc",personTotals:{}};
+var S={view:"loading",authMode:"in",_email:"",listId:null,filter:"all",meta:null,members:[],movies:[],mrat:{},loading:true,_pendingHash:null,homeLists:null,homeLoading:false,punTab:"pelis",punSort:"nota_desc",myMovies:null,myActors:null,punLoading:false,punDetail:null,profile:null,following:[],followers:[],friends:[],userQ:"",viewUserData:null,followList:null,profNames:{},bTab:"pelis",friendMovies:[],friendActors:[],fpOwner:null,fpMovies:null,fpActors:null,fpTab:"pelis",fpSort:"nota_desc",personTotals:{},imp:null};
 var modal=null, editingId=null, _memberTried=false, _rf=null, _rateVal=0;
 var _profileBack="home", _userBack="me", _unameTimer=null, _stack=[];
 var _rateSave=null, _rateRemove=null, _rateNoNote=false;
@@ -391,7 +393,7 @@ function viewMe(){
   var stat='border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--surface);color:inherit;font:inherit;cursor:pointer;flex:1;text-align:center';
   return topbar(back)+'<div class="wrap"><div class="pf-top">'+avatarBig(me.id,me.name)+'<div style="min-width:0"><div class="pf-name">'+esc(me.name)+(isFounder(me.id)?founderTag():"")+'</div><div class="pf-dep">@'+esc(me.username||"")+'</div></div></div>'
     +'<div style="display:flex;gap:10px;margin-top:14px"><button style="'+stat+'" data-act="followersList"><b style="font-size:17px">'+S.followers.length+'</b> <span style="color:var(--muted)">seguidores</span></button><button style="'+stat+'" data-act="followingList"><b style="font-size:17px">'+S.following.length+'</b> <span style="color:var(--muted)">siguiendo</span></button></div>'
-    +countsRow(punCounts(S.myMovies,S.myActors))+'<button class="btn line block" style="margin-top:16px" data-act="editName">Editar nombre</button><button class="btn line block" style="margin-top:10px" data-act="privacyInfo">Privacidad: solo amigos</button><button class="btn line block" style="margin-top:10px" data-act="logout">Cerrar sesión</button>'+fid
+    +countsRow(punCounts(S.myMovies,S.myActors))+'<button class="btn line block" style="margin-top:16px" data-act="editName">Editar nombre</button><button class="btn line block" style="margin-top:10px" data-act="privacyInfo">Privacidad: solo amigos</button><button class="btn line block" style="margin-top:10px" data-act="openImport">Importar de Letterboxd</button><button class="btn line block" style="margin-top:10px" data-act="logout">Cerrar sesión</button>'+fid
     +'<p class="soon" style="margin-top:20px">“Amigo” = os seguís los dos. Tus notas las ven tus amigos (y, dentro de una lista, sus miembros).</p></div>';
 }
 function viewUserSearch(){ return topbar('<button class="iconbtn" data-act="toMe">‹</button>')+'<div class="wrap"><div class="bsearch"><span style="color:var(--muted);font-weight:700">@</span><input id="uq" placeholder="buscar por usuario…" value="'+esc(S.userQ)+'" autocomplete="off" autocapitalize="off"></div><div id="uresults" style="margin-top:12px"></div></div>'; }
@@ -617,6 +619,7 @@ function curLoc(){
   if(v==="userSearch")return {kind:"userSearch"};
   if(v==="me")return {kind:"me"};
   if(v==="friendPun")return {kind:"friendPun",owner:S.fpOwner};
+  if(v==="import")return {kind:"root",view:"me"};
   return {kind:"root",view:(v==="buscar"||v==="puntuados"||v==="home")?v:"home"};
 }
 function navPush(){ _stack.push(curLoc()); if(_stack.length>40)_stack.shift(); }
@@ -761,6 +764,74 @@ function viewPunDetail(){
     return topbar(back)+'<div class="wrap"><div class="pf-top">'+faceBox(d.profile,d.name)+'<div style="min-width:0"><div class="pf-name">'+esc(d.name)+'</div><div class="pf-dep" style="color:var(--muted)">'+mv.length+' pelis'+pct2+'</div></div></div>'+(barsD||'')+'<button class="btn line sm" style="margin-top:14px" data-act="openPersonDir" data-arg="'+esc(d.id)+'">Ver ficha completa y filmografía</button><div class="mv-sec">'+(friend?"Sus pelis":"Sus pelis que has puntuado")+'</div>'+rows2+'<div style="height:14px"></div></div>';
   }
 }
+/* ---- Importar de Letterboxd ---- */
+function ensureJSZip(cb){ if(window.JSZip){cb();return;} var s=document.createElement("script"); s.src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"; s.onload=function(){cb();}; s.onerror=function(){cb();}; document.head.appendChild(s); }
+function parseCSV(text){ var rows=[],row=[],cur="",inQ=false; for(var i=0;i<text.length;i++){ var c=text[i]; if(inQ){ if(c==='"'){ if(text[i+1]==='"'){cur+='"';i++;} else inQ=false; } else cur+=c; } else { if(c==='"')inQ=true; else if(c===','){row.push(cur);cur="";} else if(c==='\n'){row.push(cur);rows.push(row);row=[];cur="";} else if(c==='\r'){} else cur+=c; } } if(cur!==""||row.length){row.push(cur);rows.push(row);} return rows; }
+function normT(s){ return (s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g," ").trim(); }
+function sleep(ms){ return new Promise(function(r){setTimeout(r,ms);}); }
+async function matchMovie(name,year){
+  var yr=parseInt(year,10);
+  var base="https://api.themoviedb.org/3/search/movie?api_key="+encodeURIComponent(TMDB_KEY)+"&language=es-ES&include_adult=false&query="+encodeURIComponent(name);
+  var res=[];
+  try{ var d=await fetch(base+(yr?("&primary_release_year="+yr):"")).then(function(r){return r.json();}); res=(d&&d.results)||[]; }catch(e){ return null; }
+  if((!res||!res.length)&&yr){ try{ var d2=await fetch(base).then(function(r){return r.json();}); res=(d2&&d2.results)||[]; }catch(e){} }
+  var nn=normT(name);
+  var cand=(res||[]).filter(function(m){ var my=parseInt((m.release_date||"").slice(0,4),10); return !yr||!my||Math.abs(my-yr)<=1; });
+  var exact=cand.filter(function(m){ return normT(m.title)===nn||normT(m.original_title)===nn; });
+  return exact.length>=1?exact[0]:(cand.length===1?cand[0]:null);
+}
+async function runImport(items){
+  var matched=[], done=0, CONC=5;
+  for(var i=0;i<items.length;i+=CONC){
+    var chunk=items.slice(i,i+CONC);
+    await Promise.all(chunk.map(async function(it){
+      try{ var m=await matchMovie(it.name,it.year);
+        if(m){ var dirs=[]; try{ var det=await fetch("https://api.themoviedb.org/3/movie/"+m.id+"?api_key="+encodeURIComponent(TMDB_KEY)+"&append_to_response=credits").then(function(r){return r.json();}); dirs=((det.credits&&det.credits.crew)||[]).filter(function(c){return c.job==="Director";}).map(function(c){return {id:c.id,name:c.name,profile:c.profile_path||null};}); }catch(e){}
+          matched.push({tmdb_id:String(m.id),rating:it.rating,title:m.title||m.original_title||it.name,poster:m.poster_path||null,year:(m.release_date||"").slice(0,4)||it.year||null,directors:dirs}); }
+      }catch(e){}
+      done++;
+    }));
+    if(S.imp){ S.imp.progress={done:done,total:items.length}; if(S.view==="import")render(); }
+    await sleep(140);
+  }
+  return matched;
+}
+async function startImport(file){
+  S.imp={state:"matching",progress:{done:0,total:0},matched:[],total:0}; render();
+  var csv;
+  try{
+    if(/\.zip$/i.test(file.name)){
+      await new Promise(function(res){ ensureJSZip(res); });
+      if(!window.JSZip){ toast("No se pudo cargar el lector de ZIP"); S.imp={state:"idle"}; render(); return; }
+      var zip=await window.JSZip.loadAsync(file); var entry=null;
+      zip.forEach(function(path,f){ if(/ratings\.csv$/i.test(path))entry=f; });
+      if(!entry){ toast("No encontré ratings.csv en el ZIP"); S.imp={state:"idle"}; render(); return; }
+      csv=await entry.async("string");
+    } else { csv=await file.text(); }
+  }catch(e){ toast("No se pudo leer el archivo"); S.imp={state:"idle"}; render(); return; }
+  var rows=parseCSV(csv);
+  if(!rows.length){ toast("El archivo está vacío"); S.imp={state:"idle"}; render(); return; }
+  var head=rows[0].map(function(h){return (h||"").trim().toLowerCase();});
+  var iName=head.indexOf("name"), iYear=head.indexOf("year"), iRating=head.indexOf("rating");
+  if(iName<0||iRating<0){ toast("Formato no reconocido (falta Name o Rating)"); S.imp={state:"idle"}; render(); return; }
+  var items=[];
+  for(var r=1;r<rows.length;r++){ var row=rows[r]; if(!row||!row[iName])continue; var rt=parseFloat((row[iRating]||"").replace(",",".")); if(!(rt>0))continue; items.push({name:(row[iName]||"").trim(),year:iYear>=0?(row[iYear]||"").trim():"",rating:Math.max(0.5,Math.min(5,rt))}); }
+  if(!items.length){ toast("No hay notas en el archivo"); S.imp={state:"idle"}; render(); return; }
+  S.imp.total=items.length; S.imp.progress={done:0,total:items.length}; render();
+  var matched=await runImport(items);
+  S.imp={state:"preview",matched:matched,total:items.length}; render();
+}
+function viewImport(){
+  var back='<button class="iconbtn" data-act="meBack">‹</button>'; var imp=S.imp||{state:"idle"}; var body="";
+  if(imp.state==="matching"){ var p=imp.progress||{done:0,total:0}; var pct=p.total?Math.round(p.done/p.total*100):0; body='<p class="hint" style="margin-top:0">Buscando y emparejando tus pelis con TMDB… no cierres esta pantalla (tarda un par de minutos).</p><div class="pbar"><i style="width:'+pct+'%"></i></div><p class="hint" style="text-align:center">'+p.done+' / '+p.total+'</p>'; }
+  else if(imp.state==="preview"){ var skip=imp.total-imp.matched.length; body='<div class="banner" style="margin-top:0">Se han reconocido <b>'+imp.matched.length+'</b> de <b>'+imp.total+'</b> películas.</div>'+(skip>0?'<p class="hint">'+skip+' no casaban claras con TMDB y se omitirán.</p>':'')+'<button class="btn block" style="margin-top:16px" data-act="impConfirm">Importar '+imp.matched.length+' películas</button><button class="btn line block" style="margin-top:10px" data-act="meBack">Cancelar</button>'; }
+  else if(imp.state==="importing"){ body='<p class="hint" style="margin-top:0">Guardando tus notas…</p><div class="pbar"><i style="width:100%"></i></div>'; }
+  else if(imp.state==="done"){ body='<div class="banner" style="margin-top:0">✓ Importadas <b>'+imp.matched.length+'</b> películas. Ya están en tu Puntuados.</div><button class="btn block" style="margin-top:16px" data-act="meBack">Hecho</button>'; }
+  else { body='<p class="hint" style="margin-top:0">En Letterboxd: <b>Settings → Import &amp; Export → Export your data</b>. Sube aquí ese archivo <b>.zip</b> (o el <code>ratings.csv</code>). Importa tus <b>notas de película</b>.</p><input type="file" id="impfile" accept=".zip,.csv" style="display:none"><button class="btn block" style="margin-top:16px" data-act="impPick">Elegir archivo…</button><p class="hint">Solo trae notas de pelis (Letterboxd no exporta actores). Si una peli ya la tienes puntuada, se sobrescribe. Las que no casen claras se omiten.</p>'; }
+  return topbar(back)+'<div class="wrap"><h2 class="sec-title" style="margin:16px 0 4px">Importar de Letterboxd</h2>'+body+'</div>';
+}
+function bindImport(){ var f=$("impfile"); if(f)f.onchange=function(){ if(f.files&&f.files[0])startImport(f.files[0]); }; }
+
 function render(){
   var app=$("app");
   if(S.view==="loading"){ app.innerHTML='<div class="center-load"><div><div class="spin"></div>cargando…</div></div>'; return; }
@@ -769,6 +840,7 @@ function render(){
   if(S.view==="needName"){ app.innerHTML=viewName(); bindName(); return; }
   if(S.view==="needUsername"){ app.innerHTML=viewUsername(); bindUsername(); return; }
   if(S.view==="me"){ app.innerHTML=viewMe(); return; }
+  if(S.view==="import"){ app.innerHTML=viewImport(); bindImport(); return; }
   if(S.view==="userSearch"){ app.innerHTML=viewUserSearch(); bindUserSearch(); return; }
   if(S.view==="userProfile"){ app.innerHTML=viewUser(); return; }
   if(S.view==="followList"){ app.innerHTML=viewFollowList(); return; }
@@ -1026,6 +1098,16 @@ var H={
   filter:function(f){ S.filter=f; render(); },
   nameGo:function(){ var i=$("nm"); if(!i)return; var v=i.value.trim(); if(!v){i.focus();return;} me.name=v; localStorage.setItem("arsoss.name",v); if(sb)sb.auth.updateUser({data:{name:v}}).then(function(){},function(){}); if(!me.username){ S.view="needUsername"; render(); return; } var h=S._pendingHash; S._pendingHash=null; if(h){openList(h);}else{S.view="home";render();loadMyLists();} },
   profile:function(){ navPush(); S.view="me"; render(); loadSocial(); },
+  openImport:function(){ navPush(); S.imp={state:"idle"}; S.view="import"; render(); },
+  impPick:function(){ var f=$("impfile"); if(f)f.click(); },
+  impConfirm:async function(){
+    if(!S.imp||!S.imp.matched||!S.imp.matched.length)return;
+    S.imp.state="importing"; render();
+    var rows=S.imp.matched.map(function(m){ return {user_id:me.id,tmdb_id:m.tmdb_id,rating:m.rating,title:m.title,poster:m.poster,year:m.year,directors:m.directors||[]}; });
+    var ok=true;
+    for(var i=0;i<rows.length;i+=200){ var res=await sb.from("movie_ratings").upsert(rows.slice(i,i+200),{onConflict:"user_id,tmdb_id"}); if(res.error){ ok=false; toast(errText(res.error)); break; } }
+    if(ok){ S.imp.state="done"; render(); S.myMovies=null; loadPuntuados(); } else { S.imp.state="preview"; render(); }
+  },
   meBack:function(){ navBack(); },
   toMe:function(){ navBack(); },
   upBack:function(){ navBack(); },
