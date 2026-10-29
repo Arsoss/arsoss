@@ -413,7 +413,7 @@ async function loadUserProfile(uid){
     var counts=null;
     if(S.friends.indexOf(uid)>=0){ try{ var rc=await Promise.all([ sb.from("movie_ratings").select("rating,directors").eq("user_id",uid), sb.from("actor_ratings").select("rating").eq("user_id",uid) ]); if(S.viewUserData&&S.viewUserData.id===uid)counts=punCounts((rc[0]&&rc[0].data)||[],(rc[1]&&rc[1].data)||[]); }catch(e){} }
     S.viewUserData={id:uid,loading:false,profile:(out[0]&&out[0].data)||null,following:((out[1]&&out[1].data)||[]).length,followers:((out[2]&&out[2].data)||[]).length,counts:counts};
-    render();
+    render(); applyPendingScroll();
   }catch(e){ if(S.viewUserData&&S.viewUserData.id===uid){ S.viewUserData={id:uid,loading:false,error:true}; render(); } }
 }
 function viewUser(){
@@ -461,7 +461,7 @@ async function fetchState(id){
   var tset={}; S.movies.forEach(function(m){ if(m.tmdbId)tset[m.tmdbId]=1; });
   var ids=Object.keys(tset), mids=S.members.map(function(m){return m.id;});
   if(ids.length&&mids.length){ try{ var rr=await sb.from("movie_ratings").select("tmdb_id,user_id,rating").in("tmdb_id",ids).in("user_id",mids); (rr.data||[]).forEach(function(x){ S.mrat[x.tmdb_id+"__"+x.user_id]={rating:x.rating}; }); }catch(e){} }
-  S.loading=false; renderMaybe(); ensureMember();
+  S.loading=false; renderMaybe(); applyPendingScroll(); ensureMember();
 }
 function scheduleRefetch(){ clearTimeout(_rf); _rf=setTimeout(function(){ if(S.listId)fetchState(S.listId); },300); }
 function teardown(){ if(channel){ try{sb.removeChannel(channel);}catch(e){} channel=null; } }
@@ -622,19 +622,23 @@ function curLoc(){
   if(v==="import")return {kind:"root",view:"me"};
   return {kind:"root",view:(v==="buscar"||v==="puntuados"||v==="home")?v:"home"};
 }
-function navPush(){ _stack.push(curLoc()); if(_stack.length>40)_stack.shift(); }
+var _pendingScroll=null;
+function scrollSoon(y){ var t=y||0; requestAnimationFrame(function(){ requestAnimationFrame(function(){ window.scrollTo(0,t); }); }); }
+function applyPendingScroll(){ if(_pendingScroll!=null){ var y=_pendingScroll; _pendingScroll=null; scrollSoon(y); } }
+function navPush(){ var loc=curLoc(); loc.scroll=(window.scrollY||window.pageYOffset||0); _stack.push(loc); if(_stack.length>40)_stack.shift(); }
 function navBack(){ var loc=_stack.pop(); if(!loc){ S.view="buscar"; render(); return; } restore(loc); }
 function restore(loc){
-  if(loc.kind==="movie"){ openMovie(loc.id,true); }
-  else if(loc.kind==="person"){ openPerson(loc.id,loc.dept,true); }
-  else if(loc.kind==="user"){ openUserProfile(loc.id,true); }
-  else if(loc.kind==="punDetail"){ S.punDetail=loc.detail; S.view="punDetail"; render(); }
-  else if(loc.kind==="list"){ openList(loc.id); }
-  else if(loc.kind==="followList"){ S.followList=loc.fl; S.view="followList"; render(); }
-  else if(loc.kind==="userSearch"){ S.view="userSearch"; render(); }
-  else if(loc.kind==="me"){ S.view="me"; render(); loadSocial(); }
-  else if(loc.kind==="friendPun"){ S.fpOwner=loc.owner; S.view="friendPun"; render(); loadFriendPun(loc.owner&&loc.owner.id); }
-  else { S.view=(loc.view||"home"); render(); if(loc.view==="home")loadMyLists(); else if(loc.view==="puntuados")loadPuntuados(); }
+  var sc=loc.scroll||0;
+  if(loc.kind==="movie"){ _pendingScroll=sc; openMovie(loc.id,true); }
+  else if(loc.kind==="person"){ _pendingScroll=sc; openPerson(loc.id,loc.dept,true); }
+  else if(loc.kind==="user"){ _pendingScroll=sc; openUserProfile(loc.id,true); }
+  else if(loc.kind==="punDetail"){ S.punDetail=loc.detail; S.view="punDetail"; render(); scrollSoon(sc); }
+  else if(loc.kind==="list"){ if(S.listId===loc.id&&S.meta&&S.meta!=="__missing__"){ S.view="list"; render(); scrollSoon(sc); } else { _pendingScroll=sc; openList(loc.id); } }
+  else if(loc.kind==="followList"){ S.followList=loc.fl; S.view="followList"; render(); scrollSoon(sc); }
+  else if(loc.kind==="userSearch"){ S.view="userSearch"; render(); scrollSoon(sc); }
+  else if(loc.kind==="me"){ S.view="me"; render(); loadSocial(); scrollSoon(sc); }
+  else if(loc.kind==="friendPun"){ if(S.fpOwner&&loc.owner&&S.fpOwner.id===loc.owner.id&&S.fpMovies!==null){ S.view="friendPun"; render(); scrollSoon(sc); } else { _pendingScroll=sc; S.fpOwner=loc.owner; S.view="friendPun"; render(); loadFriendPun(loc.owner&&loc.owner.id); } }
+  else { S.view=(loc.view||"home"); render(); scrollSoon(sc); if(loc.view==="home"&&S.homeLists===null)loadMyLists(); else if(loc.view==="puntuados"&&S.myMovies===null)loadPuntuados(); }
 }
 
 /* ---- búsqueda de gente de cine y usuarios (dentro de Buscar) ---- */
@@ -700,7 +704,7 @@ async function loadFriendPun(uid){
   S.fpMovies=null; S.fpActors=null; if(S.view==="friendPun")render();
   try{ var out=await Promise.all([ sb.from("movie_ratings").select("*").eq("user_id",uid), sb.from("actor_ratings").select("*").eq("user_id",uid) ]); S.fpMovies=(out[0]&&out[0].data)?out[0].data:[]; S.fpActors=(out[1]&&out[1].data)?out[1].data:[]; }
   catch(e){ S.fpMovies=[]; S.fpActors=[]; toast(errText(e)); }
-  if(S.view==="friendPun")render();
+  if(S.view==="friendPun")render(); applyPendingScroll();
 }
 function openFriendPun(uid,name){ navPush(); S.fpOwner={id:uid,name:name}; S.fpTab="pelis"; S.fpSort="nota_desc"; S.fpMovies=null; S.fpActors=null; S.view="friendPun"; render(); loadFriendPun(uid); }
 function emptyPun(isMe,kind){ var msg=isMe?(kind==="pelis"?"Aún no has puntuado ninguna peli. Busca una y ponle nota.":kind==="actores"?"Aún no has puntuado a ningún actor. Entra en una peli y puntúa a su reparto.":"Aún no hay directores. Puntúa pelis y su media saldrá aquí sola."):"Todavía no tiene nada puntuado aquí."; return '<div class="empty" style="margin-top:16px"><p style="margin:0">'+esc(msg)+'</p></div>'; }
@@ -732,7 +736,7 @@ function puntBody(){
 }
 function viewPuntuados(){ return topbar('<span class="brand">Puntuados</span>')+puntBody(); }
 function viewFriendPun(){ var name=(S.fpOwner&&S.fpOwner.name)||"amigo"; return topbar('<button class="iconbtn" data-act="punBack">‹</button>')+'<div class="wrap"><h2 class="sec-title" style="margin:16px 0 0">Puntuaciones de '+esc(name)+'</h2>'+((S.fpMovies!==null)?countsRow(punCounts(S.fpMovies,S.fpActors)):'')+'</div>'+puntBody(); }
-function openPunDetail(d){ navPush(); S.punDetail=d; S.view="punDetail"; render(); fetchPersonTotal(d.id,d.type); }
+function openPunDetail(d){ navPush(); window.scrollTo(0,0); S.punDetail=d; S.view="punDetail"; render(); fetchPersonTotal(d.id,d.type); }
 async function fetchPersonTotal(id,type){
   S.personTotals=S.personTotals||{}; if(S.personTotals[id]!=null)return;
   try{ var r=await fetch("https://api.themoviedb.org/3/person/"+id+"?api_key="+encodeURIComponent(TMDB_KEY)+"&language=es-ES&append_to_response=combined_credits"); var d=await r.json(); var cc=d.combined_credits||{}; var total;
@@ -962,7 +966,7 @@ async function tmdbMovie(id){
       for(var k in am){ frActors[k]={avg:am[k].sum/am[k].count,count:am[k].count}; }
     }
     _mv={id:String(id),loading:false,data:d,myRow:(mr&&mr.data)?{rating:mr.data.rating}:null,myRating:(mr&&mr.data)?mr.data.rating:null,myActors:myActors,frMovie:frMovie,frActors:frActors};
-    render();
+    render(); applyPendingScroll();
   }catch(e){ if(_mv&&String(_mv.id)===String(id)){ _mv={id:String(id),loading:false,error:true,myActors:{},frActors:{}}; render(); } }
 }
 function viewMovie(){
@@ -994,7 +998,7 @@ function viewMovie(){
 function openPerson(id,dept,isBack){ if(!isBack)navPush(); _pf={id:String(id),loading:true,bioFull:false,dept:dept||null}; S.view="person"; render(); tmdbPerson(id); }
 async function tmdbPerson(id){
   try{ var r=await fetch("https://api.themoviedb.org/3/person/"+id+"?api_key="+encodeURIComponent(TMDB_KEY)+"&language=es-ES&append_to_response=combined_credits"); var d=await r.json();
-    if(!_pf||String(_pf.id)!==String(id)||S.view!=="person")return; _pf.loading=false; _pf.data=d; render();
+    if(!_pf||String(_pf.id)!==String(id)||S.view!=="person")return; _pf.loading=false; _pf.data=d; render(); applyPendingScroll();
   }catch(e){ if(_pf&&String(_pf.id)===String(id)){ _pf.loading=false; _pf.error=true; render(); } }
 }
 function viewPerson(){
